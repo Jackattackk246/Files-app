@@ -1,0 +1,1 @@
+sed -i 's/val secondaryTextColor = ThemeManager.getAdaptiveSecondaryTextColor(themeMode)/val secondaryTextColor = ThemeManager.getAdaptiveSecondaryTextColor(themeMode)\n  var itemToDeletePermanently by remember { mutableStateOf<com.jackattackk246.files.util.RecycledFileRecord?>(null) }/g' app/src/main/java/com/example/ui/DashboardScreen.kt

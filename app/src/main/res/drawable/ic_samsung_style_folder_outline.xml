@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Samsung Experience / Dream UX sky-blue folder silhouette -->
+    <path
+        android:fillColor="#8EC5FC"
+        android:pathData="M24,28 C20.686,28 18,30.686 18,34 L18,74 C18,77.314 20.686,80 24,80 L84,80 C87.314,80 90,77.314 90,74 L90,40 C90,36.686 87.314,34 84,34 L50,34 L44.8,29.6 C43.2,28.4 41.2,28 39.2,28 Z" />
+</vector>

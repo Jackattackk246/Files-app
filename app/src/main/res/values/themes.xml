@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.MyApplication" parent="android:Theme.Material.NoActionBar">
+        <!-- HARD OVERRIDE: INJECT NATIVE DREAM UX PALETTE COMPONENT STRINGS -->
+        <item name="android:colorPrimary">#1473E6</item> <!-- Premium Dream Blue -->
+        <item name="android:colorSecondary">#1E2022</item> <!-- Matte Dark Charcoal Background Core -->
+        <item name="android:colorAccent">#FF9500</item> <!-- Native Samsung File Manager Orange -->
+        
+        <!-- WINDOW OVERRIDE FACTORS -->
+        <item name="android:windowBackground">#0F111A</item> <!-- Deep Midnight Galaxy Void -->
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+    </style>
+
+    <style name="Theme.FilesLauncher" parent="Theme.MyApplication" />
+</resources>

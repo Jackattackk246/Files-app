@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:pivotX="54"
+        android:pivotY="54"
+        android:scaleX="0.72"
+        android:scaleY="0.72">
+        <!-- Centered folder silhouette with smooth rounded corners matching Samsung Experience UI -->
+        <path
+            android:fillColor="#8EC5FC"
+            android:pathData="M 28,32 C 24,32 22,34 22,38 L 22,70 C 22,74 24,76 28,76 L 80,76 C 84,76 86,74 86,70 L 86,43 C 86,39 84,37 80,37 L 53,37 L 47.5,32.8 C 46,32.2 44.5,32 43,32 Z" />
+    </group>
+</vector>
