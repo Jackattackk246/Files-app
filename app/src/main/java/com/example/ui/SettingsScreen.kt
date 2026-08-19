@@ -123,6 +123,7 @@ fun SettingsScreen(
   onOpenWallpaperEngineDialog: () -> Unit,
   onOpenEnvironmentalEngineDialog: (() -> Unit)? = null,
   onOpenWelcomeWizard: (() -> Unit)? = null,
+  onReplayTutorial: () -> Unit = {},
   initialSubSection: SettingsSubSection = SettingsSubSection.MAIN
 ) {
   val context = LocalContext.current
@@ -169,7 +170,8 @@ fun SettingsScreen(
           onNavigateToDeveloper = { currentSubSection = SettingsSubSection.DEVELOPER },
           onOpenSearchConfigDialog = onOpenSearchConfigDialog,
           onOpenWallpaperEngineDialog = onOpenWallpaperEngineDialog,
-          onOpenWelcomeWizard = onOpenWelcomeWizard
+          onOpenWelcomeWizard = onOpenWelcomeWizard,
+          onReplayTutorial = onReplayTutorial
         )
       }
 
@@ -219,7 +221,8 @@ private fun SettingsMainTab(
   onNavigateToDeveloper: () -> Unit,
   onOpenSearchConfigDialog: () -> Unit,
   onOpenWallpaperEngineDialog: () -> Unit,
-  onOpenWelcomeWizard: (() -> Unit)? = null
+  onOpenWelcomeWizard: (() -> Unit)? = null,
+  onReplayTutorial: () -> Unit
 ) {
   val context = LocalContext.current
   val activeThemeAccent = ThemeManager.getThemeAccentColor(currentThemeMode, customAccentColor)
@@ -352,6 +355,60 @@ private fun SettingsMainTab(
               modifier = Modifier.size(18.dp)
             )
           }
+        }
+      }
+    }
+
+    item {
+      Card(
+        onClick = onReplayTutorial,
+        modifier = Modifier
+          .fillMaxWidth()
+          .clip(RoundedCornerShape(16.dp))
+          .border(1.dp, activeThemeAccent.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+          .testTag("settings_replay_tutorial_card"),
+        colors = CardDefaults.cardColors(containerColor = cardContainer)
+      ) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Box(
+            modifier = Modifier
+              .size(44.dp)
+              .clip(RoundedCornerShape(12.dp))
+              .background(activeThemeAccent.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              Icons.Default.PlayCircle,
+              contentDescription = null,
+              tint = activeThemeAccent,
+              modifier = Modifier.size(24.dp)
+            )
+          }
+          Spacer(modifier = Modifier.width(14.dp))
+          Column(modifier = Modifier.weight(1f)) {
+            Text(
+              "Replay App Tutorial",
+              fontWeight = FontWeight.Bold,
+              fontSize = 15.sp,
+              color = primaryTextColor
+            )
+            Text(
+              "Take a quick guided walkthrough tour of all active offline user features and utilities inside the app.",
+              fontSize = 12.sp,
+              color = secondaryTextColor
+            )
+          }
+          Icon(
+            Icons.AutoMirrored.Filled.ArrowForward,
+            contentDescription = null,
+            tint = secondaryTextColor,
+            modifier = Modifier.size(18.dp)
+          )
         }
       }
     }
@@ -1710,21 +1767,7 @@ fun ConfigurationsDialog(
                   )
                 }
 
-                item {
-                  ThemeOptionRow(
-                    title = "Dynamic Weather Canvas",
-                    subtitle = "A flowing 180° vertical linear gradient shifting from Sky Blue (#4FACFE) down to Horizon Cobalt (#00F2FE).",
-                    selected = currentThemeMode == AppThemeMode.DYNAMIC_WEATHER_CANVAS && customAccentColor == null,
-                    tag = "dialog_theme_option_dynamic_weather",
-                    accentColor = Color(0xFF00F2FE),
-                    onClick = {
-                      onCustomAccentColorChanged(null)
-                      onThemeModeChanged(AppThemeMode.DYNAMIC_WEATHER_CANVAS)
-                      ThemePreferences.setSavedThemeMode(context, AppThemeMode.DYNAMIC_WEATHER_CANVAS)
-                      ThemePreferences.setSavedCustomAccentColor(context, null)
-                    }
-                  )
-                }
+                // Removed entry for Dynamic Weather Canvas
 
                 item {
                   ThemeOptionRow(

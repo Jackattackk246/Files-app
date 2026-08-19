@@ -55,4 +55,11 @@ object DeviceEnvironmentDetector {
       else -> DeviceDisplayProfile.PHONE
     }
   }
+
+  fun isPhysicalSmartwatch(context: Context, configuration: Configuration): Boolean {
+    val uiModeManager = context.getSystemService(Context.UI_MODE_SERVICE) as? UiModeManager
+    val isWatchMode = uiModeManager?.currentModeType == Configuration.UI_MODE_TYPE_WATCH
+    val isSmallScreen = configuration.smallestScreenWidthDp in 1..280
+    return isWatchMode || isSmallScreen
+  }
 }

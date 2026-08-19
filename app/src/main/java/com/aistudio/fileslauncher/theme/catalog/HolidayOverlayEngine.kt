@@ -32,7 +32,7 @@ object HolidayOverlayEngine {
     val country = Locale.getDefault().country.uppercase()
 
     val timeGreeting = when (hour) {
-      in 0..11 -> "Good morning"
+      in 6..11 -> "Good morning"
       in 12..16 -> "Good afternoon"
       in 17..21 -> "Good evening"
       else -> "Good night"

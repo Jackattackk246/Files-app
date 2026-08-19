@@ -102,6 +102,27 @@ object UsbStorageManager {
     scanAttachedDrives(context)
   }
 
+  
+  fun handlePermissionGranted(context: Context, device: UsbDevice) {
+    try {
+        val storageManager = context.getSystemService(Context.STORAGE_SERVICE) as android.os.storage.StorageManager
+        val volumes = storageManager.storageVolumes
+        for (volume in volumes) {
+            if (volume.isRemovable && volume.state == android.os.Environment.MEDIA_MOUNTED) {
+                // Dynamically extract the root directory URI of the external USB volume
+                val intent = volume.createOpenDocumentTreeIntent()
+                val uri = intent.getParcelableExtra<android.net.Uri>(android.provider.DocumentsContract.EXTRA_INITIAL_URI)
+                if (uri != null) {
+                    savePersistedTreeUri(context, uri)
+                }
+            }
+        }
+    } catch (e: Exception) {
+        // Fallback
+    }
+    scanAttachedDrives(context)
+  }
+
   fun handleDeviceAttached(context: Context, intent: Intent?) {
     scanAttachedDrives(context)
   }
@@ -123,6 +144,37 @@ object UsbStorageManager {
   fun scanAttachedDrives(context: Context) {
     managerScope.launch {
       try {
+        if (DeveloperToolsManager.isSimulatedOtgEnabled(context)) {
+          val simDir = File(context.filesDir, ".virtual_usb_sandbox").apply {
+            if (!exists()) mkdirs()
+          }
+          var usedBytes = 0L
+          fun calculateDirSize(f: File) {
+            if (f.isFile) {
+              usedBytes += f.length()
+            } else if (f.isDirectory) {
+              f.listFiles()?.forEach { calculateDirSize(it) }
+            }
+          }
+          calculateDirSize(simDir)
+
+          val totalBytes = 16L * 1024L * 1024L * 1024L
+          val freeBytes = (totalBytes - usedBytes).coerceAtLeast(0L)
+
+          _usbState.value = UsbDeviceState(
+            isConnected = true,
+            deviceName = "Simulated OTG Storage",
+            volumeLabel = "Simulated OTG Drive",
+            mountPath = simDir,
+            safTreeUri = null,
+            isSafAuthorized = true,
+            totalBytes = totalBytes,
+            freeBytes = freeBytes,
+            usedBytes = usedBytes
+          )
+          return@launch
+        }
+
         val usbManager = context.getSystemService(Context.USB_SERVICE) as? UsbManager
         val deviceList = usbManager?.deviceList ?: emptyMap()
         

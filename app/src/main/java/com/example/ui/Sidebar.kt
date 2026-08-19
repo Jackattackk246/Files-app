@@ -1,4 +1,6 @@
 package com.jackattackk246.files.ui
+import androidx.compose.foundation.border
+
 
 import android.content.res.Configuration
 import android.os.Build
@@ -39,7 +41,9 @@ enum class NavigationNode {
   EXPLORER,
   RECENTS,
   SEARCH,
-  SETTINGS
+  SETTINGS,
+  RECYCLE_BIN,
+  NEARBY_DEVICES
 }
 
 @Composable
@@ -47,7 +51,7 @@ fun SidebarPanel(
   selectedNode: NavigationNode,
   onNodeSelected: (NavigationNode) -> Unit,
   storageMetrics: FileManager.StorageMetrics,
-  themeMode: AppThemeMode = AppThemeMode.DYNAMIC_WEATHER_CANVAS,
+  themeMode: AppThemeMode = AppThemeMode.MIDNIGHT_MATTE_BLACK,
   season: EnvironmentalSeason = EnvironmentalSeason.AUTO,
   customAccentColor: Color? = null,
   onOpenConfigurationsDialog: (() -> Unit)? = null,
@@ -69,15 +73,22 @@ fun SidebarPanel(
   val dividerColor = if (isLight) Color(0x221C1C1E) else Color.White.copy(alpha = 0.20f)
   val usbState by UsbStorageManager.usbState.collectAsState()
 
-  Surface(
+  val drawerShape = RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+
+  Box(
     modifier = modifier
       .fillMaxHeight()
-      
-      .testTag("sidebar_navigation_panel").blur(16.dp),
-    color = Color(0xFF1C1D22).copy(alpha = 0.7f),
-    border = BorderStroke(1.dp, cardBorder),
-    tonalElevation = 0.dp
+      .clip(drawerShape)
+      .background(containerBg)
+      .testTag("sidebar_navigation_panel")
   ) {
+    Box(
+      modifier = Modifier
+        .matchParentSize()
+        .clip(drawerShape)
+        .blur(16.dp)
+        .background(if (isLight) Color.White.copy(alpha = 0.85f) else Color(0xFF1C1D22).copy(alpha = 0.85f))
+    )
     Column(
       modifier = Modifier
         .fillMaxSize()
@@ -95,7 +106,7 @@ fun SidebarPanel(
             modifier = Modifier
               .size(40.dp)
               .clip(RoundedCornerShape(10.dp))
-              .background(accentColor.copy(alpha = 0.20f)),
+              .background(primaryTextColor.copy(alpha = 0.10f)),
             contentAlignment = Alignment.Center
           ) {
             Icon(
@@ -177,6 +188,16 @@ fun SidebarPanel(
             accentColor = accentColor,
             onClick = { onNodeSelected(NavigationNode.SETTINGS) }
           )
+
+          SidebarItem(
+            label = "Nearby Devices",
+            icon = Icons.Default.CastConnected,
+            selected = selectedNode == NavigationNode.NEARBY_DEVICES,
+            tag = "nav_item_nearby_devices",
+            textColor = primaryTextColor,
+            accentColor = accentColor,
+            onClick = { onNodeSelected(NavigationNode.NEARBY_DEVICES) }
+          )
         }
 
         HorizontalDivider(color = dividerColor)
@@ -193,13 +214,13 @@ fun SidebarPanel(
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
           SidebarItem(
-            label = "Environmental Backdrop",
-            icon = Icons.Default.WbSunny,
+            label = "Random Theme",
+            icon = Icons.Default.Shuffle,
             selected = false,
-            tag = "drawer_item_environmental_engine",
+            tag = "drawer_item_random_theme",
             textColor = primaryTextColor,
             accentColor = accentColor,
-            onClick = { onOpenEnvironmentalEngineDialog?.invoke() }
+            onClick = { /* TODO: Implement theme shuffle */ }
           )
 
           SidebarItem(
@@ -210,16 +231,6 @@ fun SidebarPanel(
             textColor = primaryTextColor,
             accentColor = accentColor,
             onClick = { onOpenSearchConfigDialog?.invoke() }
-          )
-
-          SidebarItem(
-            label = "Wallpaper Engine",
-            icon = Icons.Default.Wallpaper,
-            selected = false,
-            tag = "drawer_item_wallpaper_engine",
-            textColor = primaryTextColor,
-            accentColor = accentColor,
-            onClick = { onOpenWallpaperEngineDialog?.invoke() }
           )
         }
       }
@@ -381,7 +392,7 @@ fun SidebarPanel(
                 )
               }
               Text(
-                text = storageMetrics.totalGbFormatted,
+                text = "%.1f GB".format(storageMetrics.realTotalBytes / 1_000_000_000.0),
                 style = MaterialTheme.typography.labelSmall.copy(
                   color = primaryTextColor,
                   fontWeight = FontWeight.Bold
@@ -404,14 +415,14 @@ fun SidebarPanel(
               horizontalArrangement = Arrangement.SpaceBetween
             ) {
               Text(
-                text = "${storageMetrics.usedGbFormatted} Used",
+                text = "%.1f GB Used".format(storageMetrics.usedBytes / 1_000_000_000.0),
                 style = MaterialTheme.typography.bodySmall.copy(
                   fontWeight = FontWeight.Medium,
                   color = primaryTextColor
                 )
               )
               Text(
-                text = "${storageMetrics.freeGbFormatted} Free",
+                text = "%.1f GB Free".format(storageMetrics.realFreeBytes / 1_000_000_000.0),
                 style = MaterialTheme.typography.bodySmall.copy(
                   fontWeight = FontWeight.Medium,
                   color = secondaryTextColor
@@ -436,7 +447,7 @@ private fun SidebarItem(
   onClick: () -> Unit
 ) {
   val context = LocalContext.current
-  val bgColor = if (selected) accentColor.copy(alpha = 0.20f) else Color.Transparent
+  val bgColor = Color.Transparent
   val iconTint = if (selected) accentColor else textColor
 
   Row(

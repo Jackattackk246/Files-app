@@ -36,11 +36,11 @@ import java.io.File
 
 @Composable
 fun MediaPlayerStudio(
-    mediaFile: File,
+    mediaFile: com.jackattackk246.files.model.FileItem,
     onClose: () -> Unit
 ) {
     val context = LocalContext.current
-    val isAudioOnly = mediaFile.extension.lowercase() in listOf("mp3", "wav", "flac", "ogg", "m4a")
+    val isAudioOnly = mediaFile.extension.lowercase() in listOf("mp3", "wav", "flac", "ogg", "m4a", "aac")
 
     var exoPlayer by remember { mutableStateOf<ExoPlayer?>(null) }
     var isPlaying by remember { mutableStateOf(true) }
@@ -49,7 +49,12 @@ fun MediaPlayerStudio(
 
     DisposableEffect(mediaFile) {
         val player = ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.fromFile(mediaFile)))
+            val uri = if (mediaFile.customStreamUrl != null) {
+                Uri.parse(mediaFile.customStreamUrl)
+            } else {
+                Uri.fromFile(mediaFile.file)
+            }
+            setMediaItem(MediaItem.fromUri(uri))
             prepare()
             playWhenReady = true
             addListener(object : Player.Listener {
@@ -114,15 +119,22 @@ fun MediaPlayerStudio(
             .clickable(enabled = false) {},
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth(0.9f)
-                .clip(RoundedCornerShape(24.dp)).blur(16.dp)
-                .background(Color(0xFF1C1D22).copy(alpha = 0.7f))
-                .border(1.dp, borderCharcoal, RoundedCornerShape(24.dp))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+        Box(
+            modifier = Modifier.fillMaxWidth(0.9f)
         ) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(16.dp)
+                    .background(Color(0xFF1C1D22).copy(alpha = 0.7f), RoundedCornerShape(24.dp))
+                    .border(1.dp, borderCharcoal, RoundedCornerShape(24.dp))
+            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
             // Top Layer: Filename and Close Pill
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -279,4 +291,5 @@ fun MediaPlayerStudio(
             }
         }
     }
+}
 }

@@ -27,7 +27,9 @@ object FileDirectoryScanner {
     try {
       val rawFiles = targetDir.listFiles() ?: return@withContext emptyList()
       for (file in rawFiles) {
-        fileList.add(FileItem(file = file))
+        if (!file.name.equals(".recycle_bin", ignoreCase = true) && !file.name.equals(".jack_recycle_bin", ignoreCase = true) && !file.name.equals("recycle_manifest.json", ignoreCase = true)) {
+          fileList.add(FileItem(file = file))
+        }
       }
     } catch (_: Throwable) {}
     fileList

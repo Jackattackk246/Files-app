@@ -89,7 +89,9 @@ class SystemDocumentProvider : DocumentsProvider() {
     val result = MatrixCursor(projection ?: DEFAULT_DOCUMENT_PROJECTION)
     val parent = getFileForDocId(parentDocumentId)
     parent.listFiles()?.forEach { file ->
-      includeFile(result, file)
+      if (!file.name.equals(".recycle_bin", ignoreCase = true) && !file.name.equals(".jack_recycle_bin", ignoreCase = true) && !file.name.equals("recycle_manifest.json", ignoreCase = true)) {
+        includeFile(result, file)
+      }
     }
     return result
   }

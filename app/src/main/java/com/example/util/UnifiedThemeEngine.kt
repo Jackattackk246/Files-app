@@ -68,7 +68,7 @@ object UnifiedThemeEngine {
     // 1-15: Canonical Baseline & Core Profiles
     add(UnifiedThemeProfile(1, "THEME_1", "Classic Black & White", "Pure pitch-black (#000000) high-contrast canvas", "Canvas Themes", 0xFF000000, 0xFFFFFFFF, 0xFF141414, 0x33FFFFFF, false, AppThemeMode.CLASSIC_BLACK_WHITE))
     add(UnifiedThemeProfile(2, "THEME_2", "Classic White & Black", "Solid white (#FFFFFF) canvas with deep black typography", "Canvas Themes", 0xFFFFFFFF, 0xFF000000, 0xFFF1F5F9, 0x33000000, true, AppThemeMode.CLASSIC_WHITE_BLACK))
-    add(UnifiedThemeProfile(3, "THEME_3", "Dynamic Weather Canvas", "180° vertical linear gradient: Sky Blue to Horizon Cobalt", "Canvas Themes", 0xFF4FACFE, 0xFF00F2FE, 0xCCFFFFFF, 0x3300F2FE, true, AppThemeMode.DYNAMIC_WEATHER_CANVAS))
+    add(UnifiedThemeProfile(3, "THEME_3", "Minimalist Charcoal", "Flat dark charcoal (#121212) neutral theme", "Canvas Themes", 0xFF121212, 0xFFE0E0E0, 0xFF1E1E1E, 0x33E0E0E0, false, AppThemeMode.MIDNIGHT_MATTE_BLACK))
     add(UnifiedThemeProfile(4, "THEME_4", "OLED Pitch Black", "Pure black (#000000) for extreme panel battery endurance", "Canvas Themes", 0xFF000000, 0xFF38BDF8, 0xFF0A0A0A, 0x3338BDF8, false, AppThemeMode.PITCH_BLACK_OLED))
     add(UnifiedThemeProfile(5, "THEME_5", "Midnight Matte Black", "Dark charcoal canvas (#141414) with subtle slate frames", "Canvas Themes", 0xFF141414, 0xFF38BDF8, 0xFF1E1E22, 0x3338BDF8, false, AppThemeMode.MIDNIGHT_MATTE_BLACK))
     add(UnifiedThemeProfile(6, "THEME_6", "Spring Emerald", "Rich forest green (#0A1F0D) with neon green (#00FF66)", "Canvas Themes", 0xFF0A1F0D, 0xFF00FF66, 0xFF102814, 0x3300FF66, false, AppThemeMode.SPRING_EMERALD))

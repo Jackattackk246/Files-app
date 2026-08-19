@@ -35,9 +35,18 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
@@ -47,6 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.isActive
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.Lifecycle
@@ -59,6 +70,7 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.example.ui.dialog.DeleteConfirmationDialog
 import com.example.ui.MediaPlayerStudio
+import com.example.ui.NearbyDevicesScreen
 import com.jackattackk246.files.model.*
 import com.jackattackk246.files.security.DeveloperSecurityEngine
 import com.jackattackk246.files.ui.*
@@ -71,9 +83,11 @@ import com.jackattackk246.files.util.FileManager
 import com.jackattackk246.files.util.GyroscopeParallaxEngine
 import com.jackattackk246.files.util.HapticFeedbackHelper
 import com.jackattackk246.files.util.RecentFilesTracker
+import com.jackattackk246.files.util.RecycleBinEngine
 import com.jackattackk246.files.util.ThemePreferences
 import com.jackattackk246.files.util.UserProfilePreferences
 import com.jackattackk246.files.ui.dialog.WelcomeWizardDialog
+import com.jackattackk246.files.ui.TutorialOverlay
 import com.jackattackk246.files.ui.wizard.SetupWizardOnboardingView
 import android.view.View
 import com.jackattackk246.files.ui.viewer.ProtectedPathDialog
@@ -81,6 +95,124 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 import java.util.Locale
+
+@Composable
+fun WearableEmulationCanvasWrapper(
+  accentColor: Color,
+  onNavigateBack: () -> Unit,
+  onExitMockMode: () -> Unit,
+  content: @Composable () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(Color.Black),
+    contentAlignment = androidx.compose.ui.Alignment.Center
+  ) {
+    Box(
+      modifier = Modifier
+        .sizeIn(maxWidth = 360.dp, maxHeight = 360.dp)
+        .aspectRatio(1f)
+        .clip(CircleShape)
+        .border(3.dp, accentColor, CircleShape)
+        .background(Color(0xFF101116))
+    ) {
+      content()
+
+      // Wearable Hardware Navigation: Top-center floating round 'Back' chevron button
+      IconButton(
+        onClick = onNavigateBack,
+        modifier = Modifier
+          .align(androidx.compose.ui.Alignment.TopCenter)
+          .padding(top = 10.dp)
+          .size(32.dp)
+          .background(Color.Black.copy(alpha = 0.85f), CircleShape)
+          .border(1.dp, accentColor, CircleShape)
+          .testTag("wearable_hardware_back_button")
+      ) {
+        Icon(
+          imageVector = Icons.Default.ArrowBack,
+          contentDescription = "Wearable Hardware Back",
+          tint = accentColor,
+          modifier = Modifier.size(18.dp)
+        )
+      }
+
+      // Rotary Scroll Circle Crown Bezel
+      Box(
+        modifier = Modifier
+          .align(androidx.compose.ui.Alignment.CenterEnd)
+          .padding(end = 4.dp)
+          .width(22.dp)
+          .height(110.dp)
+          .clip(RoundedCornerShape(11.dp))
+          .background(Color.Black.copy(alpha = 0.6f))
+          .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(11.dp))
+          .pointerInput(Unit) {
+            detectVerticalDragGestures { change, _ ->
+              change.consume()
+            }
+          },
+        contentAlignment = androidx.compose.ui.Alignment.Center
+      ) {
+        Column(
+          verticalArrangement = Arrangement.spacedBy(4.dp),
+          horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally
+        ) {
+          repeat(6) {
+            Box(
+              modifier = Modifier
+                .width(12.dp)
+                .height(2.dp)
+                .background(accentColor.copy(alpha = 0.8f), RoundedCornerShape(1.dp))
+            )
+          }
+        }
+      }
+    }
+
+    // Persistent Exit Mock Mode Floating Action Chip
+    Surface(
+      onClick = onExitMockMode,
+      color = Color(0xFFFF3B30),
+      shape = RoundedCornerShape(20.dp),
+      border = BorderStroke(1.dp, Color.White),
+      modifier = Modifier
+        .align(androidx.compose.ui.Alignment.BottomCenter)
+        .padding(bottom = 20.dp)
+        .testTag("exit_wearable_mock_chip")
+    ) {
+      Row(
+        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+      ) {
+        Icon(Icons.Default.Close, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+        Text("EXIT MOCK MODE (Wearable)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+      }
+    }
+  }
+}
+
+@Composable
+fun AppCanvasLayoutWrapper(
+  isWearableMockActive: Boolean,
+  accentColor: Color,
+  onNavigateBack: () -> Unit,
+  onExitMockMode: () -> Unit,
+  content: @Composable () -> Unit
+) {
+  if (isWearableMockActive) {
+    WearableEmulationCanvasWrapper(
+      accentColor = accentColor,
+      onNavigateBack = onNavigateBack,
+      onExitMockMode = onExitMockMode,
+      content = content
+    )
+  } else {
+    content()
+  }
+}
 
 class MainActivity : ComponentActivity(), ImageLoaderFactory {
 
@@ -99,7 +231,7 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
           .build()
       }
       .respectCacheHeaders(false)
-      .allowHardware(true)
+      .allowHardware(false)
       .allowRgb565(false)
       .crossfade(true)
       .build()
@@ -111,6 +243,7 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
     super.onTrimMemory(level)
     try {
       appImageLoader.memoryCache?.trimMemory(level)
+      com.aistudio.fileslauncher.ui.ThemeSynchronizationBridge.onTrimMemory(level)
     } catch (_: Exception) {}
   }
 
@@ -220,10 +353,6 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
     theme.applyStyle(getStyleResourceForTheme(activeThemeId), true)
 
     super.onCreate(savedInstanceState)
-    window.setFlags(
-      android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
-      android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
-    )
     coil.Coil.setImageLoader(appImageLoader)
     enableEdgeToEdge()
     WindowCompat.setDecorFitsSystemWindows(window, false)
@@ -251,9 +380,19 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
     val midnightCharcoalCanvas = android.graphics.Color.parseColor("#0F1115")
     rootDecorWindowView.setBackgroundColor(midnightCharcoalCanvas)
 
+    val isWatch = packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
     setContent {
+      if (isWatch) {
+         com.jackattackk246.files.ui.WearDashboardScreen()
+         return@setContent
+      }
+
       val context = LocalContext.current
       val coroutineScope = rememberCoroutineScope()
+
+      LaunchedEffect(Unit) {
+        com.jackattackk246.files.util.DeveloperToolsManager.initHardwareProfile(context)
+      }
 
       // Protected path intercept dialog target
       var protectedPathTarget by remember { mutableStateOf<File?>(null) }
@@ -377,17 +516,39 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
 
       // Search and Wallpaper Engine State
       var searchQuery by remember { mutableStateOf("") }
-      var searchOptions by remember { mutableStateOf(SearchOptions()) }
+      var searchOptions by remember {
+        mutableStateOf(
+          SearchOptions(
+            deepTextSearch = ThemePreferences.isSmartSearchEnabled(context)
+          )
+        )
+      }
       var wallpaperConfig by remember { mutableStateOf(WallpaperConfig()) }
 
       // Dialog States
       var showConfigurationsDialog by remember { mutableStateOf(false) }
+      var showDevAuthDialog by remember { mutableStateOf(false) }
+      var pendingActionAfterAuth by remember { mutableStateOf<(() -> Unit)?>(null) }
       var showSearchConfigDialog by remember { mutableStateOf(false) }
       var showWallpaperEngineDialog by remember { mutableStateOf(false) }
       var showEnvironmentalDialog by remember { mutableStateOf(false) }
+      var showTutorialOverlay by remember(setupCompleted, showWelcomeWizardDialog) {
+        mutableStateOf(setupCompleted && !showWelcomeWizardDialog && com.jackattackk246.files.util.DashboardPreferences.isFirstLaunchTutorialEnabled(context))
+      }
+
+      fun openConfigurationsProtected(onSuccess: () -> Unit) {
+        val masterPrefs = context.getSharedPreferences("developer_tools_prefs", android.content.Context.MODE_PRIVATE)
+        val isMasterAuthorized = masterPrefs.getBoolean("is_developer_authorized_master", false)
+        if (isMasterAuthorized || DeveloperSecurityEngine.isDeveloperUnlocked(context)) {
+          onSuccess()
+        } else {
+          pendingActionAfterAuth = onSuccess
+          showDevAuthDialog = true
+        }
+      }
 
       var activeManageFileItem by remember { mutableStateOf<FileItem?>(null) }
-      var activeMediaFile by remember { mutableStateOf<File?>(null) }
+      var activeMediaFileItem by remember { mutableStateOf<FileItem?>(null) }
       var isFromRecentsTabDialog by remember { mutableStateOf(false) }
       var activeAnalyticsFileItem by remember { mutableStateOf<FileItem?>(null) }
       var renameTargetItem by remember { mutableStateOf<FileItem?>(null) }
@@ -405,13 +566,16 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
       var compressionProgressRatio by remember { mutableFloatStateOf(0f) }
       var compressionStatusMsg by remember { mutableStateOf("") }
 
-      // Search scraper effect
-      LaunchedEffect(searchQuery, searchOptions.deepTextSearch, currentDirectory) {
+      // Snackbar state for undo and transient action notifications
+      val snackbarHostState = remember { SnackbarHostState() }
+
+      // Search scraper effect with offline AI vector similarity pipeline
+      LaunchedEffect(searchQuery, searchOptions.deepTextSearch, searchOptions.currentDirOnly, currentDirectory) {
         if (searchQuery.isNotBlank()) {
           filesList = FileManager.searchFiles(
             rootFolder = currentDirectory,
             query = searchQuery,
-            currentDirOnly = false,
+            currentDirOnly = searchOptions.currentDirOnly,
             deepTextIndexing = searchOptions.deepTextSearch
           )
         } else {
@@ -500,6 +664,10 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
         customAccentColor = customAccentColor,
         season = environmentalConfig.selectedSeason
       ) {
+        val desktopPalette by com.aistudio.fileslauncher.ui.ThemeSynchronizationBridge.paletteState.collectAsState()
+        val simulatedHardwareProfile by com.jackattackk246.files.util.DeveloperToolsManager.simulatedHardwareProfileState.collectAsState()
+        val isWearableMockActive = simulatedHardwareProfile == "Force Wearable Layout (Ultra-Compact)"
+
         val adaptivePrimaryTextColor = com.jackattackk246.files.ui.theme.ThemeManager.getAdaptivePrimaryTextColor(
           themeMode = themeMode,
           season = environmentalConfig.selectedSeason
@@ -508,13 +676,39 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
         // Gyroscope-driven Parallax Offset for background canvas and UI depth
         val parallaxOffset = GyroscopeParallaxEngine.rememberParallaxOffset(enabled = true)
 
-        // Modal Navigation Drawer Wrapper
-        ModalNavigationDrawer(
-          drawerState = drawerState,
-          gesturesEnabled = true,
+        // Canvas Layout Wrapper (Supports Wearable Hardware Simulation Overlay)
+        AppCanvasLayoutWrapper(
+          isWearableMockActive = isWearableMockActive,
+          accentColor = ThemeManager.getThemeAccentColor(themeMode, customAccentColor),
+          onNavigateBack = {
+            if (directoryHistory.isNotEmpty()) {
+              currentDirectory = directoryHistory.removeAt(directoryHistory.size - 1)
+            } else {
+              selectedNavNode = NavigationNode.DASHBOARD
+            }
+          },
+          onExitMockMode = {
+            com.jackattackk246.files.util.DeveloperToolsManager.setSimulatedHardwareProfile(context, "Default (Native Hardware Detection)")
+            Toast.makeText(context, "Exited Wearable Mock Mode", Toast.LENGTH_SHORT).show()
+          }
+        ) {
+          // Modal Navigation Drawer Wrapper
+          ModalNavigationDrawer(
+            drawerState = drawerState,
+            gesturesEnabled = true,
           drawerContent = {
             ModalDrawerSheet(
-              modifier = Modifier.width(310.dp),
+              modifier = Modifier
+                .width(310.dp)
+                .clip(androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp))
+                .border(
+                  BorderStroke(
+                    1.dp,
+                    Color.Gray.copy(alpha = 0.2f)
+                  ),
+                  androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+                ),
+              drawerShape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp),
               drawerContainerColor = if (com.jackattackk246.files.ui.theme.ThemeManager.isLightBackgroundProfile(themeMode, environmentalConfig.selectedSeason)) {
                 Color(0xEEFFFFFF)
               } else {
@@ -533,7 +727,9 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                 onOpenConfigurationsDialog = {
                   coroutineScope.launch {
                     drawerState.close()
-                    showConfigurationsDialog = true
+                    openConfigurationsProtected {
+                      showConfigurationsDialog = true
+                    }
                   }
                 },
                 onOpenSearchConfigDialog = {
@@ -598,7 +794,7 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
               }
 
               // 2. Custom Wallpaper Engine Background Layer
-              if (wallpaperConfig.hasWallpaper && themeMode != AppThemeMode.DYNAMIC_WEATHER_CANVAS) {
+              if (wallpaperConfig.hasWallpaper) {
                 if (wallpaperConfig.imageUri != null) {
                   AsyncImage(
                     model = wallpaperConfig.imageUri,
@@ -630,6 +826,7 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                 translationY = parallaxOffset.foregroundY.dp.toPx()
               },
               containerColor = Color.Transparent,
+              snackbarHost = { SnackbarHost(snackbarHostState) },
               topBar = {
                 TopAppBar(
                   title = {
@@ -640,6 +837,8 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                         NavigationNode.RECENTS -> "Recent Files"
                         NavigationNode.SEARCH -> "Deep File Search"
                         NavigationNode.SETTINGS -> "Configurations"
+                        NavigationNode.RECYCLE_BIN -> "Recycle Bin"
+                        NavigationNode.NEARBY_DEVICES -> "Nearby Devices"
                       },
                       style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
@@ -648,30 +847,45 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                     )
                   },
                   navigationIcon = {
-                    IconButton(
-                      onClick = { coroutineScope.launch { drawerState.open() } },
-                      modifier = Modifier.testTag("drawer_hamburger_button")
-                    ) {
-                      Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "Open Sidebar Menu",
-                        tint = adaptivePrimaryTextColor
-                      )
+                    if (selectedNavNode == NavigationNode.RECYCLE_BIN || selectedNavNode == NavigationNode.NEARBY_DEVICES) {
+                      IconButton(
+                        onClick = { selectedNavNode = NavigationNode.DASHBOARD },
+                        modifier = Modifier.testTag("top_bar_back_button")
+                      ) {
+                        Icon(
+                          imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                          contentDescription = "Back to Dashboard",
+                          tint = adaptivePrimaryTextColor
+                        )
+                      }
+                    } else {
+                      IconButton(
+                        onClick = { coroutineScope.launch { drawerState.open() } },
+                        modifier = Modifier.testTag("drawer_hamburger_button")
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.Menu,
+                          contentDescription = "Open Sidebar Menu",
+                          tint = adaptivePrimaryTextColor
+                        )
+                      }
                     }
                   },
                   actions = {
-                    // SAF Quick Backdoor Button in Top Bar (Device Status / Storage Access Action)
-                    IconButton(
-                      onClick = {
-                        FileManager.openPathSAFBackdoor(context, currentDirectory.absolutePath)
-                      },
-                      modifier = Modifier.testTag("top_bar_saf_backdoor_button")
-                    ) {
-                      Icon(
-                        imageVector = Icons.Default.FolderOpen,
-                        contentDescription = "Open Path in System Files",
-                        tint = adaptivePrimaryTextColor
-                      )
+                    if (selectedNavNode != NavigationNode.RECYCLE_BIN && selectedNavNode != NavigationNode.NEARBY_DEVICES) {
+                      // SAF Quick Backdoor Button in Top Bar (Device Status / Storage Access Action)
+                      IconButton(
+                        onClick = {
+                          FileManager.openPathSAFBackdoor(context, currentDirectory.absolutePath)
+                        },
+                        modifier = Modifier.testTag("top_bar_saf_backdoor_button")
+                      ) {
+                        Icon(
+                          imageVector = Icons.Default.FolderOpen,
+                          contentDescription = "Open Path in System Files",
+                          tint = adaptivePrimaryTextColor
+                        )
+                      }
                     }
 
                     if (selectedNavNode == NavigationNode.EXPLORER) {
@@ -766,6 +980,9 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                       searchQuery = filterQuery
                     }
                   },
+                  onNavigateToRecycleBin = {
+                    selectedNavNode = NavigationNode.RECYCLE_BIN
+                  },
                   onNavigateToSettings = {
                     selectedNavNode = NavigationNode.SETTINGS
                   },
@@ -778,7 +995,7 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                     } else {
                       val isMedia = item.file.extension.lowercase() in listOf("mp3", "wav", "flac", "ogg", "m4a", "mp4", "mkv", "webm", "mov", "3gp")
                       if (isMedia) {
-                        activeMediaFile = item.file
+                        activeMediaFileItem = item
                       } else {
                         RecentFilesTracker.recordAccess(item.file)
                         FileManager.openWithSystemDefault(context, item.file)
@@ -829,12 +1046,47 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
                   onOpenSearchConfigDialog = { showSearchConfigDialog = true },
                   onOpenWallpaperEngineDialog = { showWallpaperEngineDialog = true },
                   onOpenEnvironmentalEngineDialog = { showEnvironmentalDialog = true },
-                  onOpenWelcomeWizard = { showWelcomeWizardDialog = true }
+                  onOpenWelcomeWizard = { showWelcomeWizardDialog = true },
+                  onStreamMediaItem = { mediaItem -> activeMediaFileItem = mediaItem },
+                  onReplayTutorial = {
+                    com.jackattackk246.files.util.DashboardPreferences.setFirstLaunchTutorialEnabled(context, true)
+                    showTutorialOverlay = true
+                  }
+                )
+              }
+            }
+
+            // Real-time FPS Performance Overlay
+            val isFpsOverlayActive by com.jackattackk246.files.util.DeveloperToolsManager.fpsOverlayState.collectAsState()
+            if (isFpsOverlayActive) {
+              Box(
+                modifier = Modifier
+                  .fillMaxSize()
+                  .padding(top = 80.dp, end = 16.dp),
+                contentAlignment = androidx.compose.ui.Alignment.TopEnd
+              ) {
+                FpsCounterOverlay()
+              }
+            }
+
+            // Windows 11 Desktop Mode Bottom Taskbar Dock
+            if (desktopPalette.isDesktopCanvasActive) {
+              Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = androidx.compose.ui.Alignment.BottomCenter
+              ) {
+                DesktopTaskbarDock(
+                  selectedNavNode = selectedNavNode,
+                  onNodeSelected = { selectedNavNode = it },
+                  onOpenStartMenu = { coroutineScope.launch { drawerState.open() } },
+                  accentColor = ThemeManager.getThemeAccentColor(themeMode, customAccentColor)
                 )
               }
             }
           }
         }
+      }
+    }
 
         // Universal 'Manage File' Dialog (With 3x2 action cards grid)
         activeManageFileItem?.let { item ->
@@ -1039,6 +1291,23 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
           )
         }
 
+        // Developer Password Authorization Dialog for Configurations Access
+        if (showDevAuthDialog) {
+          com.jackattackk246.files.ui.dialog.DeveloperPasswordAuthDialog(
+            onSuccess = {
+              val prefs = context.getSharedPreferences("developer_tools_prefs", android.content.Context.MODE_PRIVATE)
+              prefs.edit().putBoolean("is_developer_authorized_master", true).apply()
+              showDevAuthDialog = false
+              pendingActionAfterAuth?.invoke()
+              pendingActionAfterAuth = null
+            },
+            onDismiss = {
+              showDevAuthDialog = false
+              pendingActionAfterAuth = null
+            }
+          )
+        }
+
         // Configurations Dialog (Direct Floating Tool Modal)
         if (showConfigurationsDialog) {
           ConfigurationsDialog(
@@ -1109,6 +1378,16 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
           )
         }
 
+        if (showTutorialOverlay) {
+          TutorialOverlay(
+            themeMode = themeMode,
+            customAccentColor = customAccentColor,
+            onDismiss = {
+              showTutorialOverlay = false
+            }
+          )
+        }
+
         // Protected Path Intercept Gate Modal
         protectedPathTarget?.let { target ->
           ProtectedPathDialog(
@@ -1135,10 +1414,10 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
         }
 
         // Media Player Studio
-        activeMediaFile?.let { mediaFile ->
+        activeMediaFileItem?.let { mediaFile ->
           MediaPlayerStudio(
             mediaFile = mediaFile,
-            onClose = { activeMediaFile = null }
+            onClose = { activeMediaFileItem = null }
           )
         }
 
@@ -1149,12 +1428,34 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
             accentColor = customAccentColor ?: MaterialTheme.colorScheme.primary,
             onConfirm = {
               coroutineScope.launch {
-                val res = FileManager.delete(target.file)
+                val targetFile = target.file
+                val targetName = target.name
+                val res = FileManager.delete(targetFile)
                 if (res.isSuccess) {
                   HapticFeedbackHelper.performToggleFeedback(context)
                   RecentFilesTracker.removeAll { it.path == target.path }
-                  Toast.makeText(context, "Deleted ${target.name}", Toast.LENGTH_SHORT).show()
                   refreshDirectoryFiles()
+                  storageMetrics = FileManager.getStorageMetrics()
+                  deleteConfirmationTarget = null
+
+                  // Show Snackbar notification with interactive 'Undo' action
+                  val snackbarResult = snackbarHostState.showSnackbar(
+                    message = "Moved '$targetName' to Recycle Bin",
+                    actionLabel = "Undo",
+                    duration = SnackbarDuration.Short
+                  )
+
+                  if (snackbarResult == SnackbarResult.ActionPerformed) {
+                    val restored = RecycleBinEngine.restoreMostRecentItem()
+                    if (restored) {
+                      HapticFeedbackHelper.performTransferSuccessFeedback(context)
+                      refreshDirectoryFiles()
+                      storageMetrics = FileManager.getStorageMetrics()
+                      Toast.makeText(context, "Restored '$targetName'", Toast.LENGTH_SHORT).show()
+                    } else {
+                      Toast.makeText(context, "Unable to restore '$targetName'", Toast.LENGTH_SHORT).show()
+                    }
+                  }
                 } else {
                   HapticFeedbackHelper.performErrorFeedback(context)
                   Toast.makeText(context, "Delete failed: ${res.exceptionOrNull()?.message}", Toast.LENGTH_LONG).show()
@@ -1167,7 +1468,6 @@ class MainActivity : ComponentActivity(), ImageLoaderFactory {
       }
     }
   }
-}
 }
 
 @Composable
@@ -1188,6 +1488,7 @@ private fun MainContentPane(
   storageMetrics: FileManager.StorageMetrics,
   onRefreshStorage: () -> Unit,
   onNavigateToExplorer: (File?, String?) -> Unit,
+  onNavigateToRecycleBin: () -> Unit = {},
   onNavigateToSettings: () -> Unit,
   onNavigateToDirectory: (File) -> Unit,
   onFileItemClick: (FileItem) -> Unit,
@@ -1200,7 +1501,9 @@ private fun MainContentPane(
   onOpenSearchConfigDialog: () -> Unit,
   onOpenWallpaperEngineDialog: () -> Unit,
   onOpenEnvironmentalEngineDialog: () -> Unit,
-  onOpenWelcomeWizard: () -> Unit = {}
+  onOpenWelcomeWizard: () -> Unit = {},
+  onStreamMediaItem: (FileItem) -> Unit = {},
+  onReplayTutorial: () -> Unit = {}
 ) {
   when (selectedNavNode) {
     NavigationNode.DASHBOARD -> {
@@ -1208,8 +1511,10 @@ private fun MainContentPane(
         storageMetrics = storageMetrics,
         currentDirectory = currentDirectory,
         themeMode = themeMode,
+        customAccentColor = customAccentColor,
         season = season,
         onNavigateToExplorer = onNavigateToExplorer,
+        onNavigateToRecycleBin = onNavigateToRecycleBin,
         onNavigateToSettings = onNavigateToSettings
       )
     }
@@ -1271,8 +1576,173 @@ private fun MainContentPane(
         onOpenSearchConfigDialog = onOpenSearchConfigDialog,
         onOpenWallpaperEngineDialog = onOpenWallpaperEngineDialog,
         onOpenEnvironmentalEngineDialog = onOpenEnvironmentalEngineDialog,
-        onOpenWelcomeWizard = onOpenWelcomeWizard
+        onOpenWelcomeWizard = onOpenWelcomeWizard,
+        onReplayTutorial = onReplayTutorial
       )
+    }
+
+    NavigationNode.RECYCLE_BIN -> {
+      RecycleBinScreen(
+        themeMode = themeMode,
+        customAccentColor = customAccentColor,
+        season = season
+      )
+    }
+
+    NavigationNode.NEARBY_DEVICES -> {
+      NearbyDevicesScreen(
+        themeMode = themeMode,
+        customAccentColor = customAccentColor,
+        season = season,
+        onNavigateBack = {},
+        onStreamMediaUrl = onStreamMediaItem
+      )
+    }
+  }
+}
+
+@Composable
+fun FpsCounterOverlay() {
+  var fps by remember { mutableIntStateOf(60) }
+  var frameTimeMs by remember { mutableFloatStateOf(16.6f) }
+
+  LaunchedEffect(Unit) {
+    var lastTime = System.nanoTime()
+    var frameCount = 0
+    var accumulatedTime = 0L
+
+    while (true) {
+      withFrameNanos { currentTime ->
+        val delta = currentTime - lastTime
+        lastTime = currentTime
+        frameCount++
+        accumulatedTime += delta
+
+        if (accumulatedTime >= 1_000_000_000L) {
+          fps = frameCount
+          frameTimeMs = (accumulatedTime / 1_000_000f) / frameCount
+          frameCount = 0
+          accumulatedTime = 0L
+        }
+      }
+    }
+  }
+
+  Surface(
+    color = Color.Black.copy(alpha = 0.85f),
+    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+    border = BorderStroke(1.dp, Color(0xFF00FF66)),
+    modifier = Modifier
+      .padding(12.dp)
+      .testTag("fps_counter_overlay")
+  ) {
+    Row(
+      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+      verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+      Box(
+        modifier = Modifier
+          .size(8.dp)
+          .background(Color(0xFF00FF66), CircleShape)
+      )
+      Text(
+        text = "FPS: $fps (${"%.1f".format(frameTimeMs)}ms)",
+        color = Color(0xFF00FF66),
+        fontWeight = FontWeight.Bold,
+        fontSize = 11.sp,
+        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+      )
+    }
+  }
+}
+
+@Composable
+fun DesktopTaskbarDock(
+  selectedNavNode: NavigationNode,
+  onNodeSelected: (NavigationNode) -> Unit,
+  onOpenStartMenu: () -> Unit,
+  accentColor: Color
+) {
+  Surface(
+    color = Color(0xFF14151C).copy(alpha = 0.92f),
+    shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+    border = BorderStroke(1.dp, accentColor.copy(alpha = 0.40f)),
+    modifier = Modifier
+      .fillMaxWidth()
+      .height(56.dp)
+      .testTag("desktop_taskbar_dock")
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxSize()
+        .padding(horizontal = 16.dp),
+      verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+      IconButton(
+        onClick = onOpenStartMenu,
+        modifier = Modifier
+          .size(40.dp)
+          .background(accentColor.copy(alpha = 0.20f), CircleShape)
+      ) {
+        Icon(
+          imageVector = Icons.Default.Apps,
+          contentDescription = "Start Menu Launcher",
+          tint = accentColor
+        )
+      }
+
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+      ) {
+        val navItems = listOf(
+          Triple(NavigationNode.DASHBOARD, Icons.Default.Dashboard, "Dashboard"),
+          Triple(NavigationNode.EXPLORER, Icons.Default.Folder, "Explorer"),
+          Triple(NavigationNode.RECENTS, Icons.Default.Schedule, "Recents"),
+          Triple(NavigationNode.SEARCH, Icons.Default.Search, "Search"),
+          Triple(NavigationNode.RECYCLE_BIN, Icons.Default.Delete, "Recycle Bin"),
+          Triple(NavigationNode.NEARBY_DEVICES, Icons.Default.Devices, "Nearby Devices"),
+          Triple(NavigationNode.SETTINGS, Icons.Default.Settings, "Settings")
+        )
+
+        for ((node, icon, label) in navItems) {
+          val isSelected = selectedNavNode == node
+          IconButton(
+            onClick = { onNodeSelected(node) },
+            modifier = Modifier
+              .size(38.dp)
+              .background(
+                if (isSelected) accentColor.copy(alpha = 0.25f) else Color.Transparent,
+                androidx.compose.foundation.shape.RoundedCornerShape(8.dp)
+              )
+          ) {
+            Icon(
+              imageVector = icon,
+              contentDescription = label,
+              tint = if (isSelected) accentColor else Color.White.copy(alpha = 0.8f)
+            )
+          }
+        }
+      }
+
+      Row(
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ) {
+        Box(
+          modifier = Modifier
+            .size(8.dp)
+            .background(Color(0xFF00E676), CircleShape)
+        )
+        Text(
+          text = "Desktop Active",
+          color = Color.White.copy(alpha = 0.7f),
+          fontSize = 11.sp,
+          fontWeight = FontWeight.Bold
+        )
+      }
     }
   }
 }

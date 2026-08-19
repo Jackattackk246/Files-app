@@ -1,4 +1,6 @@
 package com.example.ui.dialog
+import androidx.compose.foundation.border
+
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -50,14 +52,13 @@ fun DeleteConfirmationDialog(
                     .testTag("delete_confirmation_dialog_frame")
             ) {
                 // Frosted background layer with blur (strictly isolated to panel)
-                Surface(
+                Box(
                     modifier = Modifier
                         .matchParentSize()
-                        .blur(16.dp),
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color(0xFF1C1D22).copy(alpha = 0.7f),
-                    border = BorderStroke(1.5.dp, accentColor)
-                ) {}
+                        .blur(16.dp)
+                        .background(Color(0xFF1C1D22).copy(alpha = 0.7f), RoundedCornerShape(20.dp))
+                        .border(1.5.dp, accentColor, RoundedCornerShape(20.dp))
+                )
                 
                 // Crisp foreground layer for text and icons
                 Column(

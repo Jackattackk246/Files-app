@@ -20,10 +20,21 @@ object FestiveCalendarEngine {
     NONE("", "")
   }
 
+  private var simulatedEvent: FestiveEvent = FestiveEvent.NONE
+
+  fun setSimulatedEvent(event: FestiveEvent) {
+    simulatedEvent = event
+  }
+
+  fun getSimulatedEvent(): FestiveEvent = simulatedEvent
+
   /**
    * Resolves active localized festive event by checking offline device clock and country locale.
    */
   fun getActiveFestiveEvent(mockMonth: Int? = null, mockDay: Int? = null): FestiveEvent {
+    if (simulatedEvent != FestiveEvent.NONE) {
+      return simulatedEvent
+    }
     val cal = Calendar.getInstance()
     val month = mockMonth ?: (cal.get(Calendar.MONTH) + 1) // 1-12
     val day = mockDay ?: cal.get(Calendar.DAY_OF_MONTH)
@@ -51,7 +62,7 @@ object FestiveCalendarEngine {
 
     val baseGreeting = when {
       festive != FestiveEvent.NONE -> festive.holidayGreeting
-      hour in 0..11 -> "Good morning"
+      hour in 6..11 -> "Good morning"
       hour in 12..16 -> "Good afternoon"
       hour in 17..21 -> "Good evening"
       else -> "Good night"

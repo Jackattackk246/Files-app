@@ -126,7 +126,9 @@ object FileManager {
   fun listFiles(dir: File): List<FileItem> {
     if (!dir.exists() || !dir.isDirectory) return emptyList()
     val files = dir.listFiles() ?: return emptyList()
-    return files.map { FileItem(it) }
+    return files
+      .filter { !it.name.equals(".recycle_bin", ignoreCase = true) && !it.name.equals(".jack_recycle_bin", ignoreCase = true) && !it.name.equals("recycle_manifest.json", ignoreCase = true) }
+      .map { FileItem(it) }
       .sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
   }
 
@@ -360,12 +362,13 @@ object FileManager {
     )
   }
 
-  // Deep Recursive Scrapers with BufferedReader loops
+  // Deep Recursive Scrapers with Vector Similarity / Literal Fallback
   suspend fun searchFiles(
     rootFolder: File,
     query: String,
     currentDirOnly: Boolean,
-    deepTextIndexing: Boolean
+    deepTextIndexing: Boolean,
+    isSmartSearch: Boolean = true
   ): List<FileItem> = withContext(Dispatchers.IO) {
     if (query.isBlank()) return@withContext emptyList()
     val results = mutableListOf<FileItem>()
@@ -397,12 +400,14 @@ object FileManager {
     }
 
     fun scanDirectory(dir: File, recursive: Boolean) {
+      if (dir.name.equals(".recycle_bin", ignoreCase = true) || dir.name.equals(".jack_recycle_bin", ignoreCase = true)) return
       val children = dir.listFiles() ?: return
       for (child in children) {
+        if (child.name.equals(".recycle_bin", ignoreCase = true) || child.name.equals(".jack_recycle_bin", ignoreCase = true) || child.name.equals("recycle_manifest.json", ignoreCase = true)) continue
         val matchesName = child.name.lowercase().contains(cleanQuery)
         val matchesContent = if (!matchesName && child.isFile) inspectFileContent(child) else false
 
-        if (matchesName || matchesContent) {
+        if (matchesName || matchesContent || isSmartSearch) {
           results.add(FileItem(child))
         }
 
@@ -413,7 +418,14 @@ object FileManager {
     }
 
     scanDirectory(rootFolder, recursive = !currentDirOnly)
-    results.sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+    if (isSmartSearch) {
+      // Offline AI Vector Similarity & Cosine Matching Query
+      com.jackattackk246.files.ai.LocalOfflineAiModule.querySemanticVectorSimilarity(results, cleanQuery)
+    } else {
+      // Literal character/filename string matching filter
+      results.filter { it.name.lowercase().contains(cleanQuery) }
+        .sortedWith(compareBy({ !it.isDirectory }, { it.name.lowercase() }))
+    }
   }
 
   // Open with System Default Selector & Minecraft Specialty Deployment

@@ -15,7 +15,8 @@ data class PhysicalStorageMetrics(
   val formattedTotal: String,
   val formattedUsed: String,
   val formattedFree: String,
-  val usedRatio: Float
+  val usedRatio: Float,
+  val percentageUsed: Float
 )
 
 object SystemStorageStatsEngine {
@@ -68,6 +69,7 @@ object SystemStorageStatsEngine {
 
     val usedBytes = (totalBytes - freeBytes).coerceAtLeast(0L)
     val ratio = if (totalBytes > 0L) (usedBytes.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else 0f
+    val percentageUsed = if (totalBytes > 0L) ((totalBytes - freeBytes).toFloat() / totalBytes.toFloat()) * 100f else 0f
 
     return PhysicalStorageMetrics(
       totalHardwareBytes = totalBytes,
@@ -76,7 +78,8 @@ object SystemStorageStatsEngine {
       formattedTotal = formatBytes(totalBytes),
       formattedUsed = formatBytes(usedBytes),
       formattedFree = formatBytes(freeBytes),
-      usedRatio = ratio
+      usedRatio = ratio,
+      percentageUsed = percentageUsed
     )
   }
 

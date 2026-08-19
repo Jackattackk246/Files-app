@@ -24,6 +24,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.jackattackk246.files.security.DeveloperSecurityEngine
 import com.jackattackk246.files.util.HapticFeedbackHelper
+import com.jackattackk246.files.util.isolateInputLayer
 
 @Composable
 fun DeveloperPasswordAuthDialog(
@@ -49,6 +50,7 @@ fun DeveloperPasswordAuthDialog(
       modifier = Modifier
         .fillMaxWidth()
         .padding(16.dp)
+        .isolateInputLayer(enabled = true)
         .testTag("dialog_developer_password_auth"),
       shape = RoundedCornerShape(20.dp),
       colors = CardDefaults.cardColors(containerColor = Color(0xFF141416)),

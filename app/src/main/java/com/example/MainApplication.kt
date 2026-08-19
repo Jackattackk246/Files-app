@@ -13,13 +13,17 @@ class MainApplication : Application(), ComponentCallbacks2 {
 
   override fun onTrimMemory(level: Int) {
     super.onTrimMemory(level)
-    ThemeSynchronizationBridge.onTrimMemory(level)
+    try {
+      ThemeSynchronizationBridge.onTrimMemory(level)
+      coil.Coil.imageLoader(this).memoryCache?.trimMemory(level)
+    } catch (_: Throwable) {}
   }
 
   override fun onLowMemory() {
     super.onLowMemory()
     try {
       System.gc()
+      coil.Coil.imageLoader(this).memoryCache?.clear()
     } catch (_: Throwable) {}
   }
 }

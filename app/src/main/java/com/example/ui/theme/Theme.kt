@@ -26,12 +26,6 @@ enum class AppThemeMode(
     "High-contrast deep black typography over a clean, solid white (#FFFFFF) canvas layout.",
     0xFF000000
   ),
-  DYNAMIC_WEATHER_CANVAS(
-    "dynamic_weather_canvas",
-    "Dynamic Weather Canvas",
-    "A flowing 180° vertical linear gradient shifting from Sky Blue (#4FACFE) down to Horizon Cobalt (#00F2FE).",
-    0xFF00F2FE
-  ),
   PITCH_BLACK_OLED(
     "pitch_black_oled",
     "OLED Pitch Black",
@@ -444,13 +438,6 @@ fun MyApplicationTheme(
   val baseScheme = when (themeMode) {
     AppThemeMode.CLASSIC_BLACK_WHITE -> ClassicBlackWhiteColorScheme
     AppThemeMode.CLASSIC_WHITE_BLACK -> ClassicWhiteBlackColorScheme
-    AppThemeMode.DYNAMIC_WEATHER_CANVAS -> {
-      if (ThemeManager.isLightBackgroundProfile(themeMode, season)) {
-        DynamicWeatherCanvasLightColorScheme
-      } else {
-        DynamicWeatherCanvasDarkColorScheme
-      }
-    }
     AppThemeMode.PITCH_BLACK_OLED -> OledPitchBlackColorScheme
     AppThemeMode.MIDNIGHT_MATTE_BLACK -> MidnightMatteBlackColorScheme
     AppThemeMode.SPRING_EMERALD -> SpringEmeraldColorScheme
@@ -464,6 +451,7 @@ fun MyApplicationTheme(
     AppThemeMode.SOLAR_FLARE -> SolarFlareColorScheme
     AppThemeMode.DESERT_SAGE -> DesertSageColorScheme
     AppThemeMode.SAMSUNG_EXPERIENCE -> SamsungExperienceColorScheme
+    else -> MidnightMatteBlackColorScheme
   }
 
   val finalColorScheme = if (customAccentColor != null) {

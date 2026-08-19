@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import kotlinx.coroutines.delay
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -81,6 +82,19 @@ fun WelcomeWizardDialog(
   var selectedRegion by remember { mutableStateOf(UserProfilePreferences.getRegion(context).let { if (it == "United States") "" else it }) }
   var selectedTheme by remember { mutableStateOf(initialTheme) }
   var selectedWallpaper by remember { mutableStateOf(initialWallpaper) }
+
+  var iconTapCount by remember { mutableStateOf(0) }
+
+  LaunchedEffect(currentTab) {
+    iconTapCount = 0
+  }
+
+  LaunchedEffect(iconTapCount) {
+    if (iconTapCount > 0) {
+      delay(2000L)
+      iconTapCount = 0
+    }
+  }
 
   // Permissions state
   fun checkStoragePermission(): Boolean {
@@ -191,7 +205,30 @@ fun WelcomeWizardDialog(
                 .size(40.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(accentColor.copy(alpha = 0.2f))
-                .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                .border(1.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                .clickable {
+                  iconTapCount++
+                  if (iconTapCount == 10) {
+                    val finalUserName = userName.trim()
+                    UserProfilePreferences.setUserName(context, finalUserName)
+                    UserProfilePreferences.setLanguage(context, selectedLanguage)
+                    UserProfilePreferences.setRegion(context, selectedRegion.ifBlank { "US" })
+                    UserProfilePreferences.setOnboardingCompleted(context, true)
+                    context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+                      .edit()
+                      .putBoolean("setup_completed", true)
+                      .apply()
+                    ThemePreferences.setSavedThemeMode(context, selectedTheme)
+                    onComplete(
+                      finalUserName,
+                      selectedLanguage,
+                      selectedRegion.ifBlank { "US" },
+                      selectedTheme,
+                      selectedWallpaper
+                    )
+                    iconTapCount = 0
+                  }
+                },
               contentAlignment = Alignment.Center
             ) {
               Icon(
@@ -281,153 +318,157 @@ fun WelcomeWizardDialog(
           Spacer(modifier = Modifier.height(16.dp))
 
           // Content Pane for Selected Tab
-          Box(
+          Column(
             modifier = Modifier
-              .weight(1f)
               .fillMaxWidth()
               .clip(RoundedCornerShape(20.dp))
               .background(Color(0xFF161A23).copy(alpha = 0.92f))
               .border(1.dp, Color(0x22FFFFFF), RoundedCornerShape(20.dp))
               .padding(16.dp)
           ) {
-            when (currentTab) {
-              WelcomeTab.PROFILE -> ProfileTabContent(
-                userName = userName,
-                onUserNameChange = { userName = it },
-                selectedLanguage = selectedLanguage,
-                onLanguageChange = { selectedLanguage = it },
-                selectedRegion = selectedRegion,
-                onRegionChange = { selectedRegion = it },
-                accentColor = accentColor
-              )
-              WelcomeTab.PERMISSIONS -> PermissionsTabContent(
-                isPermissionGranted = isPermissionGranted,
-                onRequestPermission = { requestPermission() },
-                accentColor = accentColor
-              )
-              WelcomeTab.THEME -> ThemeTabContent(
-                selectedTheme = selectedTheme,
-                onThemeSelect = { selectedTheme = it },
-                accentColor = accentColor
-              )
-              WelcomeTab.WALLPAPER -> WallpaperTabContent(
-                selectedWallpaper = selectedWallpaper,
-                onWallpaperChange = { selectedWallpaper = it },
-                accentColor = accentColor
-              )
-            }
-          }
-
-          Spacer(modifier = Modifier.height(16.dp))
-
-          // Bottom Stepper & Completion Bar
-          Row(
-            modifier = Modifier
-              .fillMaxWidth()
-              .padding(horizontal = 4.dp)
-              .navigationBarsPadding()
-              .padding(bottom = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            // Previous button
-            if (currentTab.ordinal > 0) {
-              OutlinedButton(
-                onClick = {
-                  val prevIndex = currentTab.ordinal - 1
-                  currentTab = WelcomeTab.entries[prevIndex]
-                },
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                border = ButtonDefaults.outlinedButtonBorder.copy(
-                  brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF))
-                ),
-                modifier = Modifier
-                  .height(48.dp)
-                  .testTag("welcome_prev_button")
-              ) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text("Back")
-              }
-            } else {
-              Spacer(modifier = Modifier.width(1.dp))
-            }
-
-            // Step Dots
-            Row(
-              horizontalArrangement = Arrangement.spacedBy(6.dp),
-              verticalAlignment = Alignment.CenterVertically
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
             ) {
-              WelcomeTab.entries.forEach { tab ->
-                val isActive = currentTab == tab
-                Box(
-                  modifier = Modifier
-                    .size(if (isActive) 24.dp else 8.dp, 8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(if (isActive) accentColor else Color(0x33FFFFFF))
+              when (currentTab) {
+                WelcomeTab.PROFILE -> ProfileTabContent(
+                  userName = userName,
+                  onUserNameChange = { userName = it },
+                  selectedLanguage = selectedLanguage,
+                  onLanguageChange = { selectedLanguage = it },
+                  selectedRegion = selectedRegion,
+                  onRegionChange = { selectedRegion = it },
+                  accentColor = accentColor
+                )
+                WelcomeTab.PERMISSIONS -> PermissionsTabContent(
+                  isPermissionGranted = isPermissionGranted,
+                  onRequestPermission = { requestPermission() },
+                  accentColor = accentColor
+                )
+                WelcomeTab.THEME -> ThemeTabContent(
+                  selectedTheme = selectedTheme,
+                  onThemeSelect = { selectedTheme = it },
+                  accentColor = accentColor
+                )
+                WelcomeTab.WALLPAPER -> WallpaperTabContent(
+                  selectedWallpaper = selectedWallpaper,
+                  onWallpaperChange = { selectedWallpaper = it },
+                  accentColor = accentColor
                 )
               }
             }
 
-            // Next / Finish button
-            Button(
-              onClick = {
-                if (currentTab.ordinal < WelcomeTab.entries.size - 1) {
-                  val nextIndex = currentTab.ordinal + 1
-                  currentTab = WelcomeTab.entries[nextIndex]
-                } else {
-                  // Validate mandatory storage permission for setup completion
-                  val hasStoragePermission = checkStoragePermission()
-                  if (!hasStoragePermission) {
-                    com.jackattackk246.files.util.HapticManager.errorPulse(context)
-                    android.widget.Toast.makeText(
-                      context,
-                      "Access Denied. You must grant All Files Access inside System Settings to complete the setup and initialize your storage monitoring dashboard panels.",
-                      android.widget.Toast.LENGTH_LONG
-                    ).show()
-                    currentTab = WelcomeTab.PERMISSIONS
-                    return@Button
-                  }
+            Spacer(modifier = Modifier.height(16.dp))
 
-                  // Finish onboarding
-                  UserProfilePreferences.setUserName(context, userName.trim())
-                  UserProfilePreferences.setLanguage(context, selectedLanguage)
-                  UserProfilePreferences.setRegion(context, selectedRegion)
-                  UserProfilePreferences.setOnboardingCompleted(context, true)
-                  context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("setup_completed", true)
-                    .apply()
-                  ThemePreferences.setSavedThemeMode(context, selectedTheme)
-                  onComplete(
-                    userName.trim(),
-                    selectedLanguage,
-                    selectedRegion,
-                    selectedTheme,
-                    selectedWallpaper
+            // Bottom Stepper & Completion Bar nested INSIDE the curved container card
+            Row(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              // Previous button
+              if (currentTab.ordinal > 0) {
+                OutlinedButton(
+                  onClick = {
+                    val prevIndex = currentTab.ordinal - 1
+                    currentTab = WelcomeTab.entries[prevIndex]
+                  },
+                  shape = RoundedCornerShape(12.dp),
+                  colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                  border = ButtonDefaults.outlinedButtonBorder.copy(
+                    brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF))
+                  ),
+                  modifier = Modifier
+                    .height(48.dp)
+                    .testTag("welcome_prev_button")
+                ) {
+                  Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", modifier = Modifier.size(18.dp))
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text("Back")
+                }
+              } else {
+                Spacer(modifier = Modifier.width(1.dp))
+              }
+
+              // Step Dots
+              Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                WelcomeTab.entries.forEach { tab ->
+                  val isActive = currentTab == tab
+                  Box(
+                    modifier = Modifier
+                      .size(if (isActive) 24.dp else 8.dp, 8.dp)
+                      .clip(RoundedCornerShape(4.dp))
+                      .background(if (isActive) accentColor else Color(0x33FFFFFF))
                   )
                 }
-              },
-              shape = RoundedCornerShape(12.dp),
-              colors = ButtonDefaults.buttonColors(
-                containerColor = accentColor,
-                contentColor = Color.White
-              ),
-              modifier = Modifier
-                .height(48.dp)
-                .testTag("welcome_next_button")
-            ) {
-              Text(
-                text = if (currentTab.ordinal == WelcomeTab.entries.size - 1) "Get Started" else "Next",
-                fontWeight = FontWeight.Bold
-              )
-              Spacer(modifier = Modifier.width(6.dp))
-              Icon(
-                imageVector = if (currentTab.ordinal == WelcomeTab.entries.size - 1) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp)
-              )
+              }
+
+              // Next / Finish button
+              Button(
+                onClick = {
+                  if (currentTab.ordinal < WelcomeTab.entries.size - 1) {
+                    val nextIndex = currentTab.ordinal + 1
+                    currentTab = WelcomeTab.entries[nextIndex]
+                  } else {
+                    // Validate mandatory storage permission for setup completion
+                    val hasStoragePermission = checkStoragePermission()
+                    if (!hasStoragePermission) {
+                      com.jackattackk246.files.util.HapticManager.errorPulse(context)
+                      android.widget.Toast.makeText(
+                        context,
+                        "Access Denied. You must grant All Files Access inside System Settings to complete the setup and initialize your storage monitoring dashboard panels.",
+                        android.widget.Toast.LENGTH_LONG
+                      ).show()
+                      currentTab = WelcomeTab.PERMISSIONS
+                      return@Button
+                    }
+
+                    // Finish onboarding
+                    UserProfilePreferences.setUserName(context, userName.trim())
+                    UserProfilePreferences.setLanguage(context, selectedLanguage)
+                    UserProfilePreferences.setRegion(context, selectedRegion)
+                    UserProfilePreferences.setOnboardingCompleted(context, true)
+                    context.getSharedPreferences("launcher_prefs", Context.MODE_PRIVATE)
+                      .edit()
+                      .putBoolean("setup_completed", true)
+                      .apply()
+                    ThemePreferences.setSavedThemeMode(context, selectedTheme)
+                    onComplete(
+                      userName.trim(),
+                      selectedLanguage,
+                      selectedRegion,
+                      selectedTheme,
+                      selectedWallpaper
+                    )
+                  }
+                },
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                  containerColor = accentColor,
+                  contentColor = Color.Black
+                ),
+                modifier = Modifier
+                  .height(48.dp)
+                  .testTag("welcome_next_button")
+              ) {
+                Text(
+                  text = if (currentTab.ordinal == WelcomeTab.entries.size - 1) "Get Started" else "Next",
+                  fontWeight = FontWeight.Bold,
+                  color = Color.Black
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Icon(
+                  imageVector = if (currentTab.ordinal == WelcomeTab.entries.size - 1) Icons.Default.Check else Icons.AutoMirrored.Filled.ArrowForward,
+                  contentDescription = null,
+                  tint = Color.Black,
+                  modifier = Modifier.size(18.dp)
+                )
+              }
             }
           }
         }
@@ -449,11 +490,11 @@ private fun ProfileTabContent(
   var languageExpanded by remember { mutableStateOf(false) }
   var regionExpanded by remember { mutableStateOf(false) }
 
-  LazyColumn(
-    modifier = Modifier.fillMaxSize(),
+  Column(
+    modifier = Modifier.fillMaxWidth(),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
-    item {
+    Column {
       Text(
         text = "Personalize Your Profile",
         fontSize = 18.sp,
@@ -468,174 +509,168 @@ private fun ProfileTabContent(
     }
 
     // User Name Field
-    item {
-      Column {
-        Text(
-          text = "Username (optional)",
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Medium,
-          color = Color(0xFFE2E8F0)
+    Column {
+      Text(
+        text = "Username (optional)",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color(0xFFE2E8F0)
+      )
+      Spacer(modifier = Modifier.height(6.dp))
+      OutlinedTextField(
+        value = userName,
+        onValueChange = onUserNameChange,
+        placeholder = { Text("Username (optional)", color = Color(0xFF64748B)) },
+        leadingIcon = {
+          Icon(Icons.Default.Person, contentDescription = null, tint = accentColor)
+        },
+        singleLine = true,
+        modifier = Modifier
+          .fillMaxWidth()
+          .testTag("welcome_name_input"),
+        shape = RoundedCornerShape(12.dp),
+        colors = OutlinedTextFieldDefaults.colors(
+          focusedBorderColor = accentColor,
+          unfocusedBorderColor = Color(0x44FFFFFF),
+          focusedTextColor = Color.White,
+          unfocusedTextColor = Color.White,
+          focusedContainerColor = Color(0xFF0F1218),
+          unfocusedContainerColor = Color(0xFF0F1218)
         )
-        Spacer(modifier = Modifier.height(6.dp))
-        OutlinedTextField(
-          value = userName,
-          onValueChange = onUserNameChange,
-          placeholder = { Text("Username (optional)", color = Color(0xFF64748B)) },
-          leadingIcon = {
-            Icon(Icons.Default.Person, contentDescription = null, tint = accentColor)
-          },
-          singleLine = true,
-          modifier = Modifier
-            .fillMaxWidth()
-            .testTag("welcome_name_input"),
-          shape = RoundedCornerShape(12.dp),
-          colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = accentColor,
-            unfocusedBorderColor = Color(0x44FFFFFF),
-            focusedTextColor = Color.White,
-            unfocusedTextColor = Color.White,
-            focusedContainerColor = Color(0xFF0F1218),
-            unfocusedContainerColor = Color(0xFF0F1218)
-          )
-        )
-      }
+      )
     }
 
     // Language Dropdown Selector
-    item {
-      Column {
-        Text(
-          text = "Display Language",
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Medium,
-          color = Color(0xFFE2E8F0)
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+    Column {
+      Text(
+        text = "Display Language",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color(0xFFE2E8F0)
+      )
+      Spacer(modifier = Modifier.height(6.dp))
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-          OutlinedButton(
-            onClick = { languageExpanded = true },
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(56.dp)
-              .testTag("welcome_language_selector"),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-              containerColor = Color(0xFF0F1218),
-              contentColor = Color.White
-            ),
-            border = ButtonDefaults.outlinedButtonBorder.copy(
-              brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF))
-            )
+      Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+          onClick = { languageExpanded = true },
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .testTag("welcome_language_selector"),
+          shape = RoundedCornerShape(12.dp),
+          colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color(0xFF0F1218),
+            contentColor = Color.White
+          ),
+          border = ButtonDefaults.outlinedButtonBorder.copy(
+            brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF))
+          )
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
           ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Language, contentDescription = null, tint = accentColor)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(selectedLanguage, color = Color.White, fontWeight = FontWeight.Medium)
-              }
-              Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF94A3B8))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Language, contentDescription = null, tint = accentColor)
+              Spacer(modifier = Modifier.width(10.dp))
+              Text(selectedLanguage, color = Color.White, fontWeight = FontWeight.Medium)
             }
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF94A3B8))
           }
+        }
 
-          DropdownMenu(
-            expanded = languageExpanded,
-            onDismissRequest = { languageExpanded = false },
-            modifier = Modifier
-              .background(Color(0xFF141418))
-              .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
-          ) {
-            UserProfilePreferences.availableLanguages.forEach { lang ->
-              DropdownMenuItem(
-                text = {
-                  Text(
-                    text = lang,
-                    color = if (lang == selectedLanguage) accentColor else Color.White,
-                    fontWeight = if (lang == selectedLanguage) FontWeight.Bold else FontWeight.Normal
-                  )
-                },
-                onClick = {
-                  onLanguageChange(lang)
-                  languageExpanded = false
-                }
-              )
-            }
+        DropdownMenu(
+          expanded = languageExpanded,
+          onDismissRequest = { languageExpanded = false },
+          modifier = Modifier
+            .background(Color(0xFF141418))
+            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+        ) {
+          UserProfilePreferences.availableLanguages.forEach { lang ->
+            DropdownMenuItem(
+              text = {
+                Text(
+                  text = lang,
+                  color = if (lang == selectedLanguage) accentColor else Color.White,
+                  fontWeight = if (lang == selectedLanguage) FontWeight.Bold else FontWeight.Normal
+                )
+              },
+              onClick = {
+                onLanguageChange(lang)
+                languageExpanded = false
+              }
+            )
           }
         }
       }
     }
 
     // Region Dropdown Selector
-    item {
-      Column {
-        Text(
-          text = "Region / Format",
-          fontSize = 14.sp,
-          fontWeight = FontWeight.Medium,
-          color = Color(0xFFE2E8F0)
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+    Column {
+      Text(
+        text = "Region / Format",
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium,
+        color = Color(0xFFE2E8F0)
+      )
+      Spacer(modifier = Modifier.height(6.dp))
 
-        Box(modifier = Modifier.fillMaxWidth()) {
-          OutlinedButton(
-            onClick = { regionExpanded = true },
-            modifier = Modifier
-              .fillMaxWidth()
-              .height(56.dp)
-              .testTag("welcome_region_selector"),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.outlinedButtonColors(
-              containerColor = Color(0xFF0F1218),
-              contentColor = Color.White
-            ),
-            border = ButtonDefaults.outlinedButtonBorder.copy(
-              brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF))
-            )
+      Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+          onClick = { regionExpanded = true },
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .testTag("welcome_region_selector"),
+          shape = RoundedCornerShape(12.dp),
+          colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = Color(0xFF0F1218),
+            contentColor = Color.White
+          ),
+          border = ButtonDefaults.outlinedButtonBorder.copy(
+            brush = androidx.compose.ui.graphics.SolidColor(Color(0x44FFFFFF))
+          )
+        ) {
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
           ) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.SpaceBetween,
-              verticalAlignment = Alignment.CenterVertically
-            ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Public, contentDescription = null, tint = accentColor)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                  text = selectedRegion.ifBlank { "Select Region (optional)" },
-                  color = if (selectedRegion.isBlank()) Color(0xFF64748B) else Color.White,
-                  fontWeight = FontWeight.Medium
-                )
-              }
-              Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF94A3B8))
-            }
-          }
-
-          DropdownMenu(
-            expanded = regionExpanded,
-            onDismissRequest = { regionExpanded = false },
-            modifier = Modifier
-              .background(Color(0xFF141418))
-              .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
-          ) {
-            UserProfilePreferences.availableRegions.forEach { reg ->
-              DropdownMenuItem(
-                text = {
-                  Text(
-                    text = reg,
-                    color = if (reg == selectedRegion) accentColor else Color.White,
-                    fontWeight = if (reg == selectedRegion) FontWeight.Bold else FontWeight.Normal
-                  )
-                },
-                onClick = {
-                  onRegionChange(reg)
-                  regionExpanded = false
-                }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Public, contentDescription = null, tint = accentColor)
+              Spacer(modifier = Modifier.width(10.dp))
+              Text(
+                text = selectedRegion.ifBlank { "Select Region (optional)" },
+                color = if (selectedRegion.isBlank()) Color(0xFF64748B) else Color.White,
+                fontWeight = FontWeight.Medium
               )
             }
+            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF94A3B8))
+          }
+        }
+
+        DropdownMenu(
+          expanded = regionExpanded,
+          onDismissRequest = { regionExpanded = false },
+          modifier = Modifier
+            .background(Color(0xFF141418))
+            .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp))
+        ) {
+          UserProfilePreferences.availableRegions.forEach { reg ->
+            DropdownMenuItem(
+              text = {
+                Text(
+                  text = reg,
+                  color = if (reg == selectedRegion) accentColor else Color.White,
+                  fontWeight = if (reg == selectedRegion) FontWeight.Bold else FontWeight.Normal
+                )
+              },
+              onClick = {
+                onRegionChange(reg)
+                regionExpanded = false
+              }
+            )
           }
         }
       }
@@ -649,11 +684,11 @@ private fun PermissionsTabContent(
   onRequestPermission: () -> Unit,
   accentColor: Color
 ) {
-  LazyColumn(
-    modifier = Modifier.fillMaxSize(),
+  Column(
+    modifier = Modifier.fillMaxWidth(),
     verticalArrangement = Arrangement.spacedBy(16.dp)
   ) {
-    item {
+    Column {
       Text(
         text = "Device Storage Permissions",
         fontSize = 18.sp,
@@ -669,112 +704,106 @@ private fun PermissionsTabContent(
     }
 
     // Permission Status Card
-    item {
-      Card(
+    Card(
+      modifier = Modifier
+        .fillMaxWidth()
+        .clip(RoundedCornerShape(16.dp))
+        .border(
+          1.dp,
+          if (isPermissionGranted) Color(0x4410B981) else Color(0x44F59E0B),
+          RoundedCornerShape(16.dp)
+        ),
+      colors = CardDefaults.cardColors(
+        containerColor = if (isPermissionGranted) Color(0x1A10B981) else Color(0x1AF59E0B)
+      )
+    ) {
+      Row(
         modifier = Modifier
           .fillMaxWidth()
-          .clip(RoundedCornerShape(16.dp))
-          .border(
-            1.dp,
-            if (isPermissionGranted) Color(0x4410B981) else Color(0x44F59E0B),
-            RoundedCornerShape(16.dp)
-          ),
-        colors = CardDefaults.cardColors(
-          containerColor = if (isPermissionGranted) Color(0x1A10B981) else Color(0x1AF59E0B)
-        )
+          .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(
+        Box(
           modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-          verticalAlignment = Alignment.CenterVertically
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(if (isPermissionGranted) Color(0xFF10B981) else Color(0xFFF59E0B)),
+          contentAlignment = Alignment.Center
         ) {
-          Box(
-            modifier = Modifier
-              .size(48.dp)
-              .clip(CircleShape)
-              .background(if (isPermissionGranted) Color(0xFF10B981) else Color(0xFFF59E0B)),
-            contentAlignment = Alignment.Center
-          ) {
-            Icon(
-              imageVector = if (isPermissionGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
-              contentDescription = null,
-              tint = Color.White,
-              modifier = Modifier.size(28.dp)
-            )
-          }
+          Icon(
+            imageVector = if (isPermissionGranted) Icons.Default.CheckCircle else Icons.Default.Warning,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(28.dp)
+          )
+        }
 
-          Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(14.dp))
 
-          Column(modifier = Modifier.weight(1f)) {
-            Text(
-              text = if (isPermissionGranted) "All Files Access Granted" else "Permission Required",
-              fontSize = 15.sp,
-              fontWeight = FontWeight.Bold,
-              color = Color.White
-            )
-            Text(
-              text = if (isPermissionGranted) "Full storage reading and writing active." else "Tap the button below to allow full storage access.",
-              fontSize = 12.sp,
-              color = Color(0xFFCBD5E1)
-            )
-          }
+        Column(modifier = Modifier.weight(1f)) {
+          Text(
+            text = if (isPermissionGranted) "All Files Access Granted" else "Permission Required",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+          )
+          Text(
+            text = if (isPermissionGranted) "Full storage reading and writing active." else "Tap the button below to allow full storage access.",
+            fontSize = 12.sp,
+            color = Color(0xFFCBD5E1)
+          )
         }
       }
     }
 
     // Permission Action Button
-    item {
-      Button(
-        onClick = onRequestPermission,
-        modifier = Modifier
-          .fillMaxWidth()
-          .height(52.dp)
-          .testTag("welcome_grant_permission_button"),
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(
-          containerColor = if (isPermissionGranted) Color(0xFF1E293B) else accentColor,
-          contentColor = Color.White
-        )
+    Button(
+      onClick = onRequestPermission,
+      modifier = Modifier
+        .fillMaxWidth()
+        .height(52.dp)
+        .testTag("welcome_grant_permission_button"),
+      shape = RoundedCornerShape(14.dp),
+      colors = ButtonDefaults.buttonColors(
+        containerColor = if (isPermissionGranted) Color(0xFF1E293B) else accentColor,
+        contentColor = Color.White
+      )
+    ) {
+      Icon(
+        imageVector = if (isPermissionGranted) Icons.Default.Settings else Icons.Default.Key,
+        contentDescription = null,
+        modifier = Modifier.size(20.dp)
+      )
+      Spacer(modifier = Modifier.width(10.dp))
+      Text(
+        text = if (isPermissionGranted) "Open System Storage Settings" else "Grant Storage Access",
+        fontWeight = FontWeight.Bold,
+        fontSize = 15.sp
+      )
+    }
+
+    // Privacy Badge Note
+    Card(
+      modifier = Modifier.fillMaxWidth(),
+      shape = RoundedCornerShape(12.dp),
+      colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1218))
+    ) {
+      Row(
+        modifier = Modifier.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
       ) {
         Icon(
-          imageVector = if (isPermissionGranted) Icons.Default.Settings else Icons.Default.Key,
+          imageVector = Icons.Default.Lock,
           contentDescription = null,
+          tint = Color(0xFF10B981),
           modifier = Modifier.size(20.dp)
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
-          text = if (isPermissionGranted) "Open System Storage Settings" else "Grant Storage Access",
-          fontWeight = FontWeight.Bold,
-          fontSize = 15.sp
+          text = "100% Offline & Private: No analytics, tracking, or cloud storage syncing.",
+          fontSize = 12.sp,
+          color = Color(0xFF94A3B8)
         )
-      }
-    }
-
-    // Privacy Badge Note
-    item {
-      Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F1218))
-      ) {
-        Row(
-          modifier = Modifier.padding(12.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Icon(
-            imageVector = Icons.Default.Lock,
-            contentDescription = null,
-            tint = Color(0xFF10B981),
-            modifier = Modifier.size(20.dp)
-          )
-          Spacer(modifier = Modifier.width(10.dp))
-          Text(
-            text = "100% Offline & Private: No analytics, tracking, or cloud storage syncing.",
-            fontSize = 12.sp,
-            color = Color(0xFF94A3B8)
-          )
-        }
       }
     }
   }
@@ -786,7 +815,7 @@ private fun ThemeTabContent(
   onThemeSelect: (AppThemeMode) -> Unit,
   accentColor: Color
 ) {
-  Column(modifier = Modifier.fillMaxSize()) {
+  Column(modifier = Modifier.fillMaxWidth()) {
     Text(
       text = "Select Interface Theme",
       fontSize = 18.sp,
@@ -805,7 +834,7 @@ private fun ThemeTabContent(
       columns = GridCells.Fixed(2),
       verticalArrangement = Arrangement.spacedBy(10.dp),
       horizontalArrangement = Arrangement.spacedBy(10.dp),
-      modifier = Modifier.weight(1f)
+      modifier = Modifier.height(180.dp)
     ) {
       items(AppThemeMode.entries) { theme ->
         val isSelected = selectedTheme == theme
@@ -873,7 +902,7 @@ private fun WallpaperTabContent(
   onWallpaperChange: (WallpaperConfig) -> Unit,
   accentColor: Color
 ) {
-  Column(modifier = Modifier.fillMaxSize()) {
+  Column(modifier = Modifier.fillMaxWidth()) {
     Text(
       text = "Choose Background Style",
       fontSize = 18.sp,
@@ -942,7 +971,7 @@ private fun WallpaperTabContent(
       columns = GridCells.Fixed(2),
       verticalArrangement = Arrangement.spacedBy(8.dp),
       horizontalArrangement = Arrangement.spacedBy(8.dp),
-      modifier = Modifier.weight(1f)
+      modifier = Modifier.height(180.dp)
     ) {
       items(BuiltInWallpaper.entries) { wp ->
         val isSelected = selectedWallpaper.builtInPattern == wp

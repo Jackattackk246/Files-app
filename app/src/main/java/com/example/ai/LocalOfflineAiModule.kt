@@ -16,17 +16,22 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.io.File
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
+import kotlin.math.sqrt
 
 /**
- * LocalOfflineAiModule - 100% Offline, Client-Side Matrix Computation & Smart Search Indexing Engine
- * Re-engineered to execute strictly on Dispatchers.IO with Wear OS hardware detection and robust fallback.
+ * LocalOfflineAiModule - 100% Offline, Client-Side Vector Embedding & Smart Search Engine
+ * Computes on-device dense text and metadata embeddings, executes Cosine Similarity/KNN matching,
+ * and dynamically routes queries based on the Smart Search toggle.
  */
 object LocalOfflineAiModule {
+
+  private const val EMBEDDING_DIM = 64
 
   data class AiMatrixState(
     val isInitialized: Boolean = false,
@@ -63,11 +68,10 @@ object LocalOfflineAiModule {
   )
 
   /**
-   * Initializes the client-side local offline AI loop on Dispatchers.IO, purging on Wear OS watches.
+   * Initializes the client-side local offline AI loop on Dispatchers.IO.
    */
   fun initializeOfflineAi(context: Context) {
     try {
-      // Strict Wear OS hardware form-factor check during initialization
       isWatchDevice = context.packageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)
       if (isWatchDevice) {
         terminateThreads()
@@ -85,7 +89,6 @@ object LocalOfflineAiModule {
     if (isRunning.getAndSet(true)) return
 
     val job = SupervisorJob()
-    // ISOLATE INTO DEDICATED LOW-PRIORITY BACKGROUND WORKER POOL ON Dispatchers.IO
     val scope = CoroutineScope(Dispatchers.IO + job)
     moduleJob = job
     moduleScope = scope
@@ -93,7 +96,7 @@ object LocalOfflineAiModule {
     val initialSuggestions = generateSmartSearchKeywords()
     _stateFlow.value = AiMatrixState(
       isInitialized = true,
-      status = "Active (Offline AI Search - IO Background)",
+      status = "Active (Offline AI Vector Search)",
       activeCategorySuggestions = initialSuggestions
     )
 
@@ -113,7 +116,7 @@ object LocalOfflineAiModule {
           isInitialized = true,
           totalInferences = count,
           lastScore = computedScore,
-          status = "Indexed Offline Matrix ($count)",
+          status = "Indexed Offline Vector Matrix ($count)",
           activeCategorySuggestions = updatedSuggestions
         )
 
@@ -137,83 +140,230 @@ object LocalOfflineAiModule {
     }
   }
 
+  // =========================================================================
+  // 1. OFFLINE VECTOR EMBEDDING GENERATION
+  // =========================================================================
+
   /**
-   * Fast offline semantic ranking with robust string comparison fallback for Wear OS & failure states.
+   * Generates a 64-dimensional dense normalized embedding vector for arbitrary text.
    */
-  fun rankFilesBySemanticRelevance(files: List<FileItem>, query: String): List<FileItem> {
-    if (query.isBlank()) return files
-    val q = query.trim().lowercase()
+  fun generateTextEmbedding(text: String): FloatArray {
+    val vector = FloatArray(EMBEDDING_DIM)
+    if (text.isBlank()) return vector
 
-    // If watch device or AI model inactive/failed, use lightweight primitive string-matching fallback
-    if (isWatchDevice || !_stateFlow.value.isInitialized) {
-      return files.filter { file ->
-        file.name.lowercase().contains(q) || file.extension.lowercase().contains(q)
-      }.sortedBy { it.name.lowercase() }
-    }
+    val clean = text.trim().lowercase(Locale.getDefault())
+    val words = clean.split(Regex("[^a-zA-Z0-9]+")).filter { it.isNotBlank() }
 
-    return matrixLock.read {
-      try {
-        files.sortedWith(
-          compareByDescending<FileItem> { file ->
-            var score = 0.0f
-            val name = file.name.lowercase()
-            val ext = file.extension.lowercase()
+    // Multi-gram feature hashing & semantic keyword projection
+    for (word in words) {
+      val h1 = (word.hashCode() and 0x7FFFFFFF) % EMBEDDING_DIM
+      val h2 = ((word.reversed().hashCode()) and 0x7FFFFFFF) % EMBEDDING_DIM
+      vector[h1] += 1.0f
+      vector[h2] += 0.5f
 
-            if (name == q) score += 100.0f
-            else if (name.startsWith(q)) score += 50.0f
-            else if (name.contains(q)) score += 25.0f
-
-            when (q) {
-              "image", "images", "photo", "photos", "pic", "pics" -> {
-                if (ext in listOf("jpg", "jpeg", "png", "webp", "gif", "svg", "bmp")) {
-                  score += 30.0f * localWeightMatrix[0]
-                }
-              }
-              "video", "videos", "movie", "movies", "clip", "clips" -> {
-                if (ext in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp")) {
-                  score += 30.0f * localWeightMatrix[2]
-                }
-              }
-              "music", "audio", "song", "songs", "sound" -> {
-                if (ext in listOf("mp3", "wav", "flac", "ogg", "m4a", "aac")) {
-                  score += 30.0f * localWeightMatrix[4]
-                }
-              }
-              "doc", "docs", "document", "documents", "pdf", "book" -> {
-                if (ext in listOf("pdf", "doc", "docx", "txt", "rtf", "md", "epub")) {
-                  score += 30.0f * localWeightMatrix[6]
-                }
-              }
-              "zip", "archive", "compressed", "tar" -> {
-                if (ext in listOf("zip", "rar", "7z", "tar", "gz")) {
-                  score += 30.0f * localWeightMatrix[8]
-                }
-              }
-              "apk", "app", "install", "package" -> {
-                if (ext in listOf("apk", "xapk", "apks")) {
-                  score += 30.0f * localWeightMatrix[10]
-                }
-              }
-              "large", "heavy", "big" -> {
-                if (file.size > 50 * 1024 * 1024L) {
-                  score += 20.0f * localWeightMatrix[3]
-                }
-              }
-            }
-
-            if (q.startsWith("ext:")) {
-              val targetExts = q.removePrefix("ext:").split(",").map { it.trim() }
-              if (ext in targetExts) score += 60.0f
-            }
-
-            score
-          }.thenBy { it.name.lowercase() }
-        )
-      } catch (_: Exception) {
-        // Fail-safe robust fallback to primitive string matching if semantic ranking throws
-        files.filter { it.name.lowercase().contains(q) }.sortedBy { it.name.lowercase() }
+      // Semantic domain boosts
+      when (word) {
+        "image", "images", "photo", "photos", "pic", "pics", "jpg", "png", "webp", "gif" -> {
+          vector[0] += 2.5f; vector[1] += 1.5f; vector[2] += 1.0f
+        }
+        "video", "videos", "movie", "movies", "clip", "mp4", "mkv", "mov" -> {
+          vector[3] += 2.5f; vector[4] += 1.5f; vector[5] += 1.0f
+        }
+        "music", "audio", "sound", "song", "songs", "mp3", "wav", "flac", "m4a" -> {
+          vector[6] += 2.5f; vector[7] += 1.5f; vector[8] += 1.0f
+        }
+        "doc", "docs", "document", "documents", "pdf", "txt", "word", "excel", "sheet" -> {
+          vector[9] += 2.5f; vector[10] += 1.5f; vector[11] += 1.0f
+        }
+        "zip", "archive", "rar", "7z", "tar", "compressed", "backup" -> {
+          vector[12] += 2.5f; vector[13] += 1.5f; vector[14] += 1.0f
+        }
+        "apk", "app", "application", "package", "install", "installer" -> {
+          vector[15] += 2.5f; vector[16] += 1.5f; vector[17] += 1.0f
+        }
+        "large", "big", "heavy", "huge" -> {
+          vector[18] += 2.0f; vector[19] += 2.0f
+        }
+        "recent", "new", "today", "latest" -> {
+          vector[20] += 2.0f; vector[21] += 2.0f
+        }
       }
     }
+
+    // Character 3-grams
+    if (clean.length >= 3) {
+      for (i in 0..clean.length - 3) {
+        val gram = clean.substring(i, i + 3)
+        val idx = (gram.hashCode() and 0x7FFFFFFF) % EMBEDDING_DIM
+        vector[idx] += 0.25f
+      }
+    }
+
+    // L2 Normalize
+    var normSq = 0.0f
+    for (v in vector) {
+      normSq += v * v
+    }
+    if (normSq > 0.0f) {
+      val invNorm = 1.0f / sqrt(normSq)
+      for (i in vector.indices) {
+        vector[i] *= invNorm
+      }
+    }
+
+    return vector
+  }
+
+  /**
+   * Generates embedding vector for a candidate FileItem.
+   */
+  fun generateFileEmbedding(fileItem: FileItem): FloatArray {
+    val vector = FloatArray(EMBEDDING_DIM)
+    val name = fileItem.name.lowercase(Locale.getDefault())
+    val ext = fileItem.extension.lowercase(Locale.getDefault())
+
+    // Base name text embedding
+    val textVec = generateTextEmbedding(name)
+    for (i in 0 until EMBEDDING_DIM) {
+      vector[i] += textVec[i] * 0.7f
+    }
+
+    // Extension & category explicit signals
+    when {
+      ext in listOf("jpg", "jpeg", "png", "webp", "gif", "svg", "bmp") || fileItem.isImage -> {
+        vector[0] += 1.5f; vector[1] += 1.0f
+      }
+      ext in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp") || fileItem.isVideo -> {
+        vector[3] += 1.5f; vector[4] += 1.0f
+      }
+      ext in listOf("mp3", "wav", "flac", "ogg", "m4a", "aac") || fileItem.isAudio -> {
+        vector[6] += 1.5f; vector[7] += 1.0f
+      }
+      ext in listOf("pdf", "doc", "docx", "txt", "rtf", "md", "csv", "xlsx") || fileItem.isDocument -> {
+        vector[9] += 1.5f; vector[10] += 1.0f
+      }
+      ext in listOf("zip", "rar", "7z", "tar", "gz") || fileItem.isArchive -> {
+        vector[12] += 1.5f; vector[13] += 1.0f
+      }
+      ext in listOf("apk", "xapk", "apks") || fileItem.isApk -> {
+        vector[15] += 1.5f; vector[16] += 1.0f
+      }
+    }
+
+    // Size profile
+    if (fileItem.size > 50 * 1024 * 1024L) {
+      vector[18] += 1.2f
+    }
+
+    // Recency profile
+    val ageDays = (System.currentTimeMillis() - fileItem.lastModified) / (24 * 60 * 60 * 1000L)
+    if (ageDays <= 2) {
+      vector[20] += 1.2f
+    }
+
+    // L2 Normalize
+    var normSq = 0.0f
+    for (v in vector) {
+      normSq += v * v
+    }
+    if (normSq > 0.0f) {
+      val invNorm = 1.0f / sqrt(normSq)
+      for (i in vector.indices) {
+        vector[i] *= invNorm
+      }
+    }
+
+    return vector
+  }
+
+  // =========================================================================
+  // 2. VECTOR SIMILARITY (COSINE / KNN)
+  // =========================================================================
+
+  fun cosineSimilarity(vecA: FloatArray, vecB: FloatArray): Float {
+    if (vecA.size != vecB.size || vecA.isEmpty()) return 0.0f
+    var dot = 0.0f
+    for (i in vecA.indices) {
+      dot += vecA[i] * vecB[i]
+    }
+    return dot.coerceIn(-1.0f, 1.0f)
+  }
+
+  /**
+   * Runs local vector similarity matching query (Cosine Similarity / KNN)
+   * on candidate files against the search query.
+   */
+  fun querySemanticVectorSimilarity(
+    files: List<FileItem>,
+    query: String,
+    minSimilarity: Float = 0.08f
+  ): List<FileItem> {
+    if (query.isBlank()) return files
+    val cleanQuery = query.trim().lowercase(Locale.getDefault())
+
+    val queryVector = generateTextEmbedding(cleanQuery)
+
+    data class ScoredItem(val item: FileItem, val score: Float)
+
+    val scored = files.map { fileItem ->
+      val fileVec = generateFileEmbedding(fileItem)
+      var similarity = cosineSimilarity(queryVector, fileVec)
+
+      val nameLower = fileItem.name.lowercase(Locale.getDefault())
+
+      // Exact / Prefix / Substring lexical boosts
+      if (nameLower == cleanQuery) {
+        similarity += 10.0f
+      } else if (nameLower.startsWith(cleanQuery)) {
+        similarity += 5.0f
+      } else if (nameLower.contains(cleanQuery)) {
+        similarity += 2.5f
+      }
+
+      ScoredItem(fileItem, similarity)
+    }
+
+    // Filter by threshold if non-empty, and sort descending by similarity score
+    val matches = scored.filter { it.score >= minSimilarity }
+      .sortedByDescending { it.score }
+      .map { it.item }
+
+    return if (matches.isNotEmpty()) matches else {
+      // Fallback to literal matching if vector similarity yielded 0 results
+      files.filter { it.name.lowercase(Locale.getDefault()).contains(cleanQuery) }
+    }
+  }
+
+  // =========================================================================
+  // 3. PIPELINE ROUTING (Smart Search vs Literal Search)
+  // =========================================================================
+
+  /**
+   * Dispatches the search query based on the Smart Search toggle state.
+   * - If smartSearchEnabled == true: routes to offline vector embedding and semantic similarity matching.
+   * - If smartSearchEnabled == false: falls back to standard literal character/filename substring match.
+   */
+  fun executeSmartSearchPipeline(
+    files: List<FileItem>,
+    query: String,
+    smartSearchEnabled: Boolean
+  ): List<FileItem> {
+    val q = query.trim().lowercase(Locale.getDefault())
+    if (q.isBlank()) return files
+
+    return if (smartSearchEnabled) {
+      querySemanticVectorSimilarity(files, q)
+    } else {
+      files.filter { it.name.lowercase(Locale.getDefault()).contains(q) }
+        .sortedBy { it.name.lowercase(Locale.getDefault()) }
+    }
+  }
+
+  /**
+   * Fast offline semantic ranking for list display.
+   */
+  fun rankFilesBySemanticRelevance(files: List<FileItem>, query: String): List<FileItem> {
+    return querySemanticVectorSimilarity(files, query)
   }
 
   private fun computeLocalMatrixPass(): Float {
@@ -236,7 +386,7 @@ object LocalOfflineAiModule {
   }
 
   fun predictFileCategory(file: File): String {
-    val ext = file.extension.lowercase()
+    val ext = file.extension.lowercase(Locale.getDefault())
     return when {
       ext in listOf("jpg", "jpeg", "png", "webp", "gif", "svg", "bmp") -> "Image"
       ext in listOf("mp4", "mkv", "avi", "mov", "webm", "3gp") -> "Video"

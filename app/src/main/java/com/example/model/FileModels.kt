@@ -9,7 +9,8 @@ data class FileItem(
   val isDirectory: Boolean = file.isDirectory,
   val size: Long = if (file.isFile) file.length() else 0L,
   val lastModified: Long = file.lastModified(),
-  val extension: String = file.extension.lowercase()
+  val extension: String = file.extension.lowercase(),
+  val customStreamUrl: String? = null
 ) {
   val formattedSize: String
     get() {
@@ -66,7 +67,8 @@ data class SearchOptions(
   val location: SearchLocation = SearchLocation.TOP_TOOLBAR,
   val style: SearchStyle = SearchStyle.EXPANDED_BOX,
   val currentDirOnly: Boolean = false,
-  val deepTextSearch: Boolean = false
+  val deepTextSearch: Boolean = false,
+  val isSmartSearch: Boolean = true
 )
 
 data class FolderAnalytics(

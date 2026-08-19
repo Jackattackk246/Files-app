@@ -28,7 +28,17 @@ object UserProfilePreferences {
     val name = prefs.getString(KEY_USER_PROFILE_NAME, null)
       ?: prefs.getString(KEY_USER_NAME, "User")
       ?: "User"
-    return name
+    val trimmed = name.trim()
+    return if (trimmed == "Developer" || trimmed.isBlank()) "User" else trimmed
+  }
+
+  fun getRawUserName(context: Context): String {
+    val prefs = getPrefs(context)
+    val name = prefs.getString(KEY_USER_PROFILE_NAME, null)
+      ?: prefs.getString(KEY_USER_NAME, null)
+      ?: ""
+    val trimmed = name.trim()
+    return if (trimmed == "User" || trimmed == "Developer" || trimmed.isBlank()) "" else trimmed
   }
 
   fun setUserName(context: Context, name: String) {
@@ -44,12 +54,11 @@ object UserProfilePreferences {
    * with proper user profile name spacing rules.
    */
   fun getDynamicTimeGreeting(context: Context): String {
-    val sharedPrefs = getPrefs(context)
-    val profileName = sharedPrefs.getString(KEY_USER_PROFILE_NAME, "") ?: sharedPrefs.getString(KEY_USER_NAME, "") ?: ""
+    val profileName = getRawUserName(context)
 
     val currentHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val timeGreeting = when (currentHour) {
-      in 0..11 -> "Good morning"
+      in 6..11 -> "Good morning"
       in 12..16 -> "Good afternoon"
       in 17..21 -> "Good evening"
       else -> "Good night"
@@ -58,7 +67,7 @@ object UserProfilePreferences {
     return if (profileName.trim().isEmpty()) {
       timeGreeting
     } else {
-      "$timeGreeting, ${profileName.trim()}"
+      "$timeGreeting ${profileName.trim()}"
     }
   }
 

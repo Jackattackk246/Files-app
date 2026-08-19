@@ -63,7 +63,7 @@ object ThemeManager {
    * Evaluates whether the dynamic environmental canvas should be mounted.
    */
   fun shouldMountBackdropCanvas(themeMode: AppThemeMode): Boolean {
-    val shouldMount = themeMode == AppThemeMode.DYNAMIC_WEATHER_CANVAS
+    val shouldMount = false
     _isBackdropActive.value = shouldMount
     return shouldMount
   }
@@ -91,12 +91,6 @@ object ThemeManager {
         colors = listOf(
           Color(0xFFFFFFFF), // Solid White (Top 0.0)
           Color(0xFFF8FAFC)  // Crisp Off-White (Bottom 1.0)
-        )
-      )
-      AppThemeMode.DYNAMIC_WEATHER_CANVAS -> Brush.verticalGradient(
-        colors = listOf(
-          Color(0xFF4FACFE), // Vivid Sky Blue (Top 0.0)
-          Color(0xFF00F2FE)  // Deep Horizon Cobalt (Bottom 1.0)
         )
       )
       AppThemeMode.PITCH_BLACK_OLED -> Brush.verticalGradient(
@@ -188,7 +182,6 @@ object ThemeManager {
     return when (themeMode) {
       AppThemeMode.CLASSIC_BLACK_WHITE -> Color(0xFFFFFFFF)
       AppThemeMode.CLASSIC_WHITE_BLACK -> Color(0xFF000000)
-      AppThemeMode.DYNAMIC_WEATHER_CANVAS -> Color(0xFF00F2FE)
       AppThemeMode.PITCH_BLACK_OLED -> Color(0xFF38BDF8)
       AppThemeMode.MIDNIGHT_MATTE_BLACK -> Color(0xFF38BDF8)
       AppThemeMode.SPRING_EMERALD -> Color(0xFF00FF66)  // Vivid Neon Green (#00FF66)
@@ -210,7 +203,7 @@ object ThemeManager {
    * Returns true if dynamic weather canvas or Classic White and Black is active.
    */
   fun isLightBackgroundProfile(themeMode: AppThemeMode, season: EnvironmentalSeason = EnvironmentalSeason.AUTO): Boolean {
-    return themeMode == AppThemeMode.DYNAMIC_WEATHER_CANVAS || themeMode == AppThemeMode.CLASSIC_WHITE_BLACK
+    return themeMode == AppThemeMode.CLASSIC_WHITE_BLACK
   }
 
   /**
@@ -288,7 +281,6 @@ object ThemeManager {
   ): Color {
     return when (themeMode) {
       AppThemeMode.CLASSIC_WHITE_BLACK -> Color(0xEEFFFFFF)
-      AppThemeMode.DYNAMIC_WEATHER_CANVAS -> Color(0xCCFFFFFF)
       AppThemeMode.CLASSIC_BLACK_WHITE -> Color(0xCC111111)
       AppThemeMode.PITCH_BLACK_OLED -> Color(0xCC121214)
       AppThemeMode.MIDNIGHT_MATTE_BLACK -> Color(0xCC1E1E22)
@@ -313,7 +305,6 @@ object ThemeManager {
     return when (themeMode) {
       AppThemeMode.CLASSIC_BLACK_WHITE -> Color(0x66FFFFFF)
       AppThemeMode.CLASSIC_WHITE_BLACK -> Color(0x33000000)
-      AppThemeMode.DYNAMIC_WEATHER_CANVAS -> Color(0x33000000)
       AppThemeMode.PITCH_BLACK_OLED -> Color(0x3338BDF8)
       AppThemeMode.MIDNIGHT_MATTE_BLACK -> Color(0x3338BDF8)
       AppThemeMode.SPRING_EMERALD -> Color(0x6600FF66)

@@ -15,7 +15,7 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.fileslauncher.zktrva"
-    minSdk = 24
+    minSdk = 25
     targetSdk = 36
     versionCode = 246
     versionName = "2.4.6"
@@ -121,7 +121,11 @@ dependencies {
   implementation(libs.okhttp)
   // implementation(libs.play.services.location)
   implementation(libs.retrofit)
+
+  implementation("androidx.wear.compose:compose-foundation:1.3.1")
+  implementation("androidx.wear.compose:compose-material:1.3.1")
   implementation("com.google.android.gms:play-services-wearable:18.2.0")
+
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)

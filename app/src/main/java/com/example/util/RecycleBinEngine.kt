@@ -18,11 +18,11 @@ data class RecycledFileRecord(
 
 object RecycleBinEngine {
 
-  private const val RECYCLE_DIR_NAME = ".jack_recycle_bin"
+  const val RECYCLE_DIR_NAME = ".recycle_bin"
   private const val METADATA_FILE = "recycle_manifest.json"
   private const val THIRTY_DAYS_MILLIS = 30L * 24 * 60 * 60 * 1000L
 
-  private fun getRecycleRootDirectory(): File {
+  fun getRecycleRootDirectory(): File {
     val base = Environment.getExternalStorageDirectory()
     val recycleDir = File(base, RECYCLE_DIR_NAME)
     if (!recycleDir.exists()) {
@@ -184,6 +184,14 @@ object RecycleBinEngine {
       return true
     }
     return false
+  }
+
+  @Synchronized
+  fun restoreMostRecentItem(): Boolean {
+    val items = getRecycledItems()
+    if (items.isEmpty()) return false
+    val mostRecent = items.first()
+    return restoreItem(mostRecent.id)
   }
 
   @Synchronized
